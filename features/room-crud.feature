@@ -62,3 +62,12 @@ When eu seleciono a opção “editar sala” da sala “D005”
 Then eu recebo uma mensagem de erro informando que não é possível editar uma sala reservada
 And eu ainda estou na tela de salas cadastradas
 And a sala “D005” ainda aparece com capacidade “60” na lista de salas cadastradas e com status "reservada"
+
+Scenario: Tentar cadastrar sala com dados incompletos
+Given eu estou logado como administrador com o usuário “Maria” com CPF “111111” 
+And eu estou na tela de salas cadastradas
+And a sala de nome “D005” não aparece na lista de salas cadastradas
+When eu seleciono a opção “cadastrar sala”
+And tento cadastrar a sala “D005” com capacidade “80” e descrição com “sala de reunião”
+Then eu vejo uma mensagem de erro infomando que os campos "número de computadores" e "status de manutenção" não foram preenchidos
+And eu ainda estou no formulário de cadastro 
