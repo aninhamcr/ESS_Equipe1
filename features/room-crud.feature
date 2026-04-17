@@ -48,3 +48,12 @@ When eu seleciono a opção “remover sala” da sala “D005”
 Then eu vejo uma mensagem de erro informando que não posso remover uma sala reservada
 And eu ainda estou na tela de salas cadastradas
 And eu continuo vendo a sala “D005” na lista de salas cadastradas
+
+Scenario: Tentar Editar Sala Reservada
+Given eu estou logado como administrador com o usuário “Maria” com CPF “111111” 
+And eu estou na tela de salas cadastradas
+And eu vejo a sala “D005” na lista de salas cadastradas com capacidade “80”
+When eu seleciono a opção “editar sala” da sala “D005”
+Then eu recebo uma mensagem de erro informando que não é possível editar uma sala reservada
+And eu ainda estou na tela de salas cadastradas
+And a sala “D005” ainda aparece com capacidade “80” na lista de salas cadastradas
