@@ -39,3 +39,12 @@ And tento cadastrar a sala “D005” com capacidade “80”, descrição com �
 Then eu recebo uma mensagem de erro informando que a sala “D005” já existe
 And eu continuo na tela com o formulário de cadastro de sala 
 
+Scenario: Remover Sala Reservada
+Given eu estou logado como administrador com o usuário “Maria” com CPF “111111” 
+And eu estou na tela de salas cadastradas
+And eu vejo a sala “D005” na lista de salas cadastradas 
+And eu vejo que a sala "D005" está reservada
+When eu seleciono a opção “remover sala” da sala “D005”
+Then eu vejo uma mensagem de erro informando que não posso remover uma sala reservada
+And eu ainda estou na tela de salas cadastradas
+And eu continuo vendo a sala “D005” na lista de salas cadastradas
