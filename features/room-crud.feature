@@ -40,7 +40,7 @@ Then eu recebo uma mensagem de erro informando que a sala “D005” já existe
 And eu continuo na tela com o formulário de cadastro de sala 
 And a tela do formulário de cadastro está com todos os campos vazios
 
-Scenario: Remover Sala Reservada
+Scenario: Tentar Remover Sala Reservada
 Given eu estou logado como administrador com o usuário “Maria” com CPF “111111” 
 And eu estou na tela de salas cadastradas
 And eu vejo a sala “D005” na lista de salas cadastradas 
