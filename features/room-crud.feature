@@ -1,3 +1,7 @@
+Feature> Cadastro e manutenção de salas
+As a usuário administrador
+I want cadastrar e gerenciar salas 
+So that alunos e professores possam reserva-las e utilizar seus recursos
 
 Scenario: Criar Sala
 Given eu estou logado como administrador com o usuário “Maria” com CPF “111111” 
