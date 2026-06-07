@@ -27,7 +27,7 @@ Given('o professor {string} está autenticado na aplicação', (name) => {
     cy.get('input[placeholder="000.000.000-00"]').type("48977981085");
     cy.get('input[placeholder="••••••••"]').type("senha123");
     cy.contains("button", "Entrar").click();
-    cy.url().should("include", "/reservas-de-sala");
+    cy.url().should("include", "/perfil");
     cy.visit(`${BASE_URL}/solicitacoes-de-manutencao`);
     cy.get('select#nova-room', { timeout: 10000 }).should("exist");
   });
