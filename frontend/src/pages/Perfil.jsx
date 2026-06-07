@@ -53,7 +53,11 @@ export default function Perfil() {
       setSenha("");
       setEditando(false);
     } catch (err) {
-      setEditError(err.message);
+      setEditError(
+        err.response?.data?.detail ||
+        err.message ||
+        "Erro ao atualizar dados"
+      );
     } finally {
       setEditLoading(false);
     }
