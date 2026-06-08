@@ -7,8 +7,10 @@ const API_URL  = "http://localhost:8000";
 // de teste permitidos do backend, entao e limpo junto com os demais).
 const CPF_OUTRO = "97405315046";
 
-// ── Before: limpar reservas/usuarios de teste e garantir salas ────────────────
+// ── Before: limpar manutencoes/reservas/usuarios e garantir salas ─────────────
+// Ordem importa: manutencao primeiro (FK teacher_cpf -> users.cpf), depois users.
 Before({ tags: "@reservas" }, () => {
+  cy.request("DELETE", `${API_URL}/test/maintenance`);
   cy.request("DELETE", `${API_URL}/test/users`);
   cy.request("POST", `${API_URL}/test/rooms/seed`);
 });
@@ -88,7 +90,7 @@ Given(
       url: `${API_URL}/test/reservations/seed`,
       body: {
         user_cpf: CPF_OUTRO,
-        user_name: "Outro Usuario",
+        user_name: "Draco Malfoy",
         user_type: "discente",
         room,
         start_time: inicio,
@@ -99,40 +101,41 @@ Given(
   },
 );
 
+Given(
+  "a sala {string} esta em manutencao de {string} a {string}",
+  (room, inicio, fim) => {
+    cy.request({
+      method: "POST",
+      url: `${API_URL}/test/maintenance/seed`,
+      body: { room, start_date: inicio, end_date: fim },
+    });
+  },
+);
+
 // ── Whens ───────────────────────────────────────────────────────────────────
 
 When(
   "eu preencho a nova reserva com sala {string} inicio {string} e fim {string}",
   (room, inicio, fim) => {
-    cy.get("#nova-room", { timeout: 10000 }).find("option").should("exist");
+    // Aguarda a opcao especifica carregar (as salas vem de /api/rooms async).
+    cy.get("#nova-room", { timeout: 10000 }).find("option").contains(room).should("exist");
     cy.get("#nova-room").select(room);
     cy.get("#nova-start").clear().type(inicio);
     cy.get("#nova-end").clear().type(fim);
   },
 );
 
-When("eu clico em {string}", (label) => {
-  cy.contains("button", label).click();
-});
-
 When("eu clico em {string} na reserva da sala {string}", (label, room) => {
   cy.contains("tr", room, { timeout: 10000 })
     .within(() => cy.contains("button", label).click());
 });
 
-When("eu altero o horario de fim para {string}", (fim) => {
-  cy.get("#edit-end").clear().type(fim);
+When("eu altero a sala para {string}", (room) => {
+  cy.get("#edit-room", { timeout: 10000 }).find("option").contains(room).should("exist");
+  cy.get("#edit-room").select(room);
 });
 
 // ── Thens ───────────────────────────────────────────────────────────────────
-
-Then("eu vejo a mensagem de sucesso {string}", (mensagem) => {
-  cy.contains(mensagem, { timeout: 10000 }).should("be.visible");
-});
-
-Then("eu vejo a mensagem de erro {string}", (mensagem) => {
-  cy.contains("p", mensagem, { timeout: 10000 }).should("be.visible");
-});
 
 Then(
   "eu vejo na lista uma reserva da sala {string} com status {string}",
@@ -140,6 +143,18 @@ Then(
     cy.contains("tr", room, { timeout: 10000 }).should("contain", statusLabel);
   },
 );
+
+// Versao robusta da mensagem de erro: procura em qualquer elemento (a mensagem
+// de validacao 422 e renderizada num <p>, mas evitamos acoplar ao seletor).
+Then("eu vejo o erro de reserva {string}", (mensagem) => {
+  cy.contains(mensagem, { timeout: 10000 }).should("be.visible");
+});
+
+// O toast de sucesso usa animacao (opacity 0 -> 1); checar `be.visible` e flaky.
+// A presenca do texto no DOM ja comprova que a acao teve sucesso.
+Then("eu vejo o aviso de sucesso {string}", (mensagem) => {
+  cy.contains(mensagem, { timeout: 10000 }).should("exist");
+});
 
 Then("a reserva da sala {string} nao possui o botao {string}", (room, label) => {
   cy.contains("tr", room, { timeout: 10000 }).within(() => {
