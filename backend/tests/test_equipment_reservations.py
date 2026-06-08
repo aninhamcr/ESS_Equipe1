@@ -179,8 +179,8 @@ def student_has_confirmed_reservation(context, student, cpf, quantity, room, sta
     _insert_reservation(context, student, cpf, room, int(quantity), start, end, ComputerReservationStatus.confirmed)
 
 
-@given(parsers.parse('the request body has room "{room}", computer quantity "{quantity}", start time "{start}", and end time "{end}"'))
-def request_body(context, room, quantity, start, end):
+@given(parsers.parse('the reservation request has room "{room}", computer quantity "{quantity}", start time "{start}", and end time "{end}"'))
+def reservation_request(context, room, quantity, start, end):
     context["body"] = {
         "room": room,
         "computer_quantity": quantity,
@@ -189,13 +189,13 @@ def request_body(context, room, quantity, start, end):
     }
 
 
-@given(parsers.parse('the update body has room "{room}", computer quantity "{quantity}", start time "{start}", and end time "{end}"'))
-def update_body(context, room, quantity, start, end):
-    request_body(context, room, quantity, start, end)
+@given(parsers.parse('the reservation update has room "{room}", computer quantity "{quantity}", start time "{start}", and end time "{end}"'))
+def reservation_update(context, room, quantity, start, end):
+    reservation_request(context, room, quantity, start, end)
 
 
-@when(parsers.parse('a "POST" request is sent to "/api/equipment/reservations/" for student "{student}" with CPF "{cpf}"'))
-def post_reservation(context, student, cpf):
+@when(parsers.parse('student "{student}" with CPF "{cpf}" requests a computer reservation'))
+def request_reservation(context, student, cpf):
     context["user_name"] = student
     context["user_cpf"] = cpf
     db = SessionTest()
@@ -210,8 +210,8 @@ def post_reservation(context, student, cpf):
         db.close()
 
 
-@when(parsers.parse('a "GET" request is sent to "/api/equipment/reservations/" for CPF "{cpf}"'))
-def get_reservations(context, cpf):
+@when(parsers.parse('student with CPF "{cpf}" requests their computer reservations'))
+def request_reservations(context, cpf):
     context["user_cpf"] = cpf
     db = SessionTest()
     reservations = list_computer_reservations(user_cpf=cpf, db=db)
@@ -219,8 +219,8 @@ def get_reservations(context, cpf):
     db.close()
 
 
-@when(parsers.parse('a "PUT" request is sent to "/api/equipment/reservations/{reservation_id}" for CPF "{cpf}"'))
-def put_reservation(context, reservation_id, cpf):
+@when(parsers.parse('student "{student}" with CPF "{cpf}" requests to update that computer reservation'))
+def request_reservation_update(context, student, cpf):
     db = SessionTest()
     try:
         payload = ComputerReservationUpdate(**_request_body(context))
@@ -232,8 +232,8 @@ def put_reservation(context, reservation_id, cpf):
         db.close()
 
 
-@when(parsers.parse('a "DELETE" request is sent to "/api/equipment/reservations/{reservation_id}" for CPF "{cpf}"'))
-def delete_reservation(context, reservation_id, cpf):
+@when(parsers.parse('student "{student}" with CPF "{cpf}" requests to cancel that computer reservation'))
+def request_reservation_cancellation(context, student, cpf):
     db = SessionTest()
     try:
         cancel_computer_reservation(context["reservation_id"], user_cpf=cpf, db=db)
@@ -247,6 +247,41 @@ def delete_reservation(context, reservation_id, cpf):
 @then(parsers.parse('the response status should be "{status_code:d}"'))
 def response_status(context, status_code):
     assert context["response"].status_code == status_code, context["response"].text
+
+
+@then("the reservation request should be accepted")
+def reservation_request_accepted(context):
+    response_status(context, 201)
+
+
+@then("the reservation request should be rejected")
+def reservation_request_rejected(context):
+    response_status(context, 400)
+
+
+@then("the reservation list should be returned successfully")
+def reservation_list_returned(context):
+    response_status(context, 200)
+
+
+@then("the reservation should be updated successfully")
+def reservation_updated(context):
+    response_status(context, 200)
+
+
+@then("the update request should be rejected")
+def reservation_update_rejected(context):
+    response_status(context, 400)
+
+
+@then("the reservation should be canceled successfully")
+def reservation_canceled(context):
+    response_status(context, 204)
+
+
+@then("the cancellation request should be rejected")
+def reservation_cancellation_rejected(context):
+    response_status(context, 400)
 
 
 @then(parsers.parse('the response message should be "{message}"'))
