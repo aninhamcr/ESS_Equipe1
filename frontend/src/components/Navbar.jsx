@@ -23,6 +23,7 @@ const NAV_ITEMS = {
     { label: "Salas",       path: "/salas" },
     { label: "Reservas",    path: "/reservas" },
     { label: "Manutenções", path: "/manutencoes" },
+    { label: "Admin Tools", path: "/admin-tools" },
     { label: "Meu perfil",  path: "/perfil" },
   ],
 };

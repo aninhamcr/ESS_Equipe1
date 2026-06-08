@@ -8,7 +8,28 @@ async function request(path, options = {}) {
   if (res.status === 204) return null;
 
   const body = await res.json().catch(() => ({ detail: "Erro desconhecido" }));
-  if (!res.ok) throw new Error(body.detail || "Erro na requisição");
+  if (!res.ok) {
+    const detail = body.detail;
+    let msg;
+    if (Array.isArray(detail)) {
+      // Erros de validação do FastAPI/Pydantic — limpa o prefixo "Value error, " que vem dos field_validators
+      msg = detail
+        .map((e) => e.msg)
+        .join(", ")
+        .replace(/Value error,\s*/gi, "");
+    } else if (typeof detail === "string") {
+      msg = detail;
+    } else if (detail && typeof detail === "object" && typeof detail.message === "string") {
+      // Detail estruturado (ex.: { message, pending_reservation_ids }) — preserva o objeto em err.detail
+      msg = detail.message;
+    } else {
+      msg = "Erro na requisição";
+    }
+    const err = new Error(msg);
+    err.status = res.status;
+    err.detail = detail;
+    throw err;
+  }
   return body;
 }
 

@@ -36,7 +36,11 @@ class Reservation(Base):
     # Identidade do reservante (FK lógica para a tabela users da Kauanny)
     user_cpf = Column(String(14), nullable=False, index=True)
     user_name = Column(String(255), nullable=False)
-    user_type = Column(String(50), nullable=True)  #padronizando com a estrutura da tabela users da Kauanny, onde user_type é "student" ou "teacher". Pode ser nulo para manter compatibilidade com reservas antigas caso a feature 4 seja implementada depois.
+    # Snapshot do tipo do usuário no momento da reserva: "discente", "docente"
+    # ou "admin" (ver _USER_TYPE_MAP em services/reservation.py). Desnormalizado
+    # para preservar o histórico mesmo que o usuário seja alterado/desativado.
+    # Nulo é tolerado para compatibilidade com reservas antigas/semeadas em teste.
+    user_type = Column(String(50), nullable=True)
 
     # Nome da sala (FK lógica para a tabela rooms da Aninha)
     room = Column(String(255), nullable=False)

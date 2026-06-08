@@ -5,3 +5,5 @@ salla.db
 venv/
 .venv/
 .env
+.env.*
+!.env.example
