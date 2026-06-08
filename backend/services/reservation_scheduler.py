@@ -4,6 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import SessionLocal
 from models.reservation import Reservation, ReservationStatus
+from models.equipment import ComputerReservation, ComputerReservationStatus
 from models.maintenance import MaintenanceRequest, MaintenanceStatus
 from models.room import Room, RoomMaintenanceStatus
 
@@ -26,6 +27,22 @@ def _expire_reservations() -> None:
             Reservation.status == ReservationStatus.confirmed,
             Reservation.end_time <= now,
         ).update({"status": ReservationStatus.completed}, synchronize_session=False)
+
+        db.query(ComputerReservation).filter(
+            ComputerReservation.status == ComputerReservationStatus.pending,
+            ComputerReservation.start_time <= now,
+        ).update(
+            {"status": ComputerReservationStatus.denied},
+            synchronize_session=False,
+        )
+
+        db.query(ComputerReservation).filter(
+            ComputerReservation.status == ComputerReservationStatus.confirmed,
+            ComputerReservation.end_time <= now,
+        ).update(
+            {"status": ComputerReservationStatus.completed},
+            synchronize_session=False,
+        )
 
         # manutenções confirmadas cujo end_date já passou → completed + reverte sala
         expired_maintenances = (

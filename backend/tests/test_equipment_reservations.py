@@ -1,9 +1,8 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import os
-from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers, scenarios, then, when
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -13,14 +12,11 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from database import Base, get_db
 from models.equipment import ComputerReservation, ComputerReservationStatus
+from models.maintenance import MaintenanceRequest, MaintenanceStatus
+from models.reservation import Reservation, ReservationStatus
 from models.room import Room, RoomMaintenanceStatus
-from routes.equipment import (
-    cancel_computer_reservation,
-    create_computer_reservation,
-    list_computer_reservations,
-    update_computer_reservation,
-)
-from schemas.equipment import ComputerReservationCreate, ComputerReservationUpdate
+from models.user import User, UserRole
+from main import app
 
 engine_test = create_engine(
     "sqlite:///:memory:",
@@ -29,10 +25,7 @@ engine_test = create_engine(
 )
 SessionTest = sessionmaker(bind=engine_test)
 
-Base.metadata.create_all(bind=engine_test)
-
-
-def override_db():
+def override_get_db():
     db = SessionTest()
     try:
         yield db
@@ -40,22 +33,42 @@ def override_db():
         db.close()
 
 
+app.dependency_overrides[get_db] = override_get_db
+
 scenarios("../../features/lab-equipment-reservation.feature")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def create_tables():
+    Base.metadata.create_all(bind=engine_test)
+    yield
+    Base.metadata.drop_all(bind=engine_test)
 
 
 @pytest.fixture(autouse=True)
 def clean_database():
     db = SessionTest()
-    db.query(ComputerReservation).delete()
-    db.query(Room).delete()
+    for table in reversed(Base.metadata.sorted_tables):
+        db.execute(table.delete())
     db.commit()
     db.close()
     yield
     db = SessionTest()
-    db.query(ComputerReservation).delete()
-    db.query(Room).delete()
+    for table in reversed(Base.metadata.sorted_tables):
+        db.execute(table.delete())
     db.commit()
     db.close()
+
+
+@pytest.fixture(autouse=True)
+def ensure_db_override():
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+
+
+@pytest.fixture
+def client():
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -90,6 +103,25 @@ def _insert_room(name: str, computers: int, maintenance_status: RoomMaintenanceS
     db.close()
 
 
+def _ensure_user(user_name: str, user_cpf: str, active: bool = True):
+    db = SessionTest()
+    user = db.query(User).filter(User.cpf == user_cpf).first()
+    if user is None:
+        db.add(
+            User(
+                nome=user_name,
+                cpf=user_cpf,
+                status=active,
+                senha="test-password-hash",
+                tipo=UserRole.DISCENTE,
+                matricula=f"MAT-{user_cpf}",
+                curso="Computacao",
+            )
+        )
+        db.commit()
+    db.close()
+
+
 def _insert_reservation(
     context,
     user_name: str,
@@ -100,6 +132,7 @@ def _insert_reservation(
     end_time: str,
     status: ComputerReservationStatus = ComputerReservationStatus.pending,
 ):
+    _ensure_user(user_name, user_cpf)
     db = SessionTest()
     reservation = ComputerReservation(
         user_cpf=user_cpf,
@@ -126,28 +159,6 @@ def _request_body(context):
     }
 
 
-def _success_response(status_code: int, body=None):
-    return SimpleNamespace(status_code=status_code, text=str(body), json=lambda: body)
-
-
-def _error_response(exc: HTTPException):
-    body = {"detail": exc.detail}
-    return SimpleNamespace(status_code=exc.status_code, text=str(body), json=lambda: body)
-
-
-def _response_body(reservation: ComputerReservation):
-    return {
-        "id": reservation.id,
-        "user_cpf": reservation.user_cpf,
-        "user_name": reservation.user_name,
-        "room": reservation.room,
-        "computer_quantity": reservation.computer_quantity,
-        "start_time": reservation.start_time.isoformat(),
-        "end_time": reservation.end_time.isoformat(),
-        "status": reservation.status.value,
-    }
-
-
 @given(parsers.parse('the room "{room}" has {computers:d} computers and is not under maintenance'))
 def room_not_under_maintenance(room, computers):
     _insert_room(room, computers, RoomMaintenanceStatus.no)
@@ -160,6 +171,7 @@ def room_under_maintenance(room, computers):
 
 @given(parsers.parse('student "{student}" with CPF "{cpf}" has no reservation from "{start}" to "{end}"'))
 def student_has_no_reservation(context, student, cpf, start, end):
+    _ensure_user(student, cpf)
     context["user_name"] = student
     context["user_cpf"] = cpf
 
@@ -195,53 +207,43 @@ def reservation_update(context, room, quantity, start, end):
 
 
 @when(parsers.parse('student "{student}" with CPF "{cpf}" requests a computer reservation'))
-def request_reservation(context, student, cpf):
+def request_reservation(client, context, student, cpf):
+    _ensure_user(student, cpf)
     context["user_name"] = student
     context["user_cpf"] = cpf
-    db = SessionTest()
-    try:
-        payload = ComputerReservationCreate(**_request_body(context))
-        reservation = create_computer_reservation(payload, user_cpf=cpf, user_name=student, db=db)
-        context["reservation_id"] = reservation.id
-        context["response"] = _success_response(201, _response_body(reservation))
-    except HTTPException as exc:
-        context["response"] = _error_response(exc)
-    finally:
-        db.close()
+    context["response"] = client.post(
+        "/api/equipment/reservations/",
+        params={"user_cpf": cpf, "user_name": student},
+        json=_request_body(context),
+    )
+    if context["response"].status_code == 201:
+        context["reservation_id"] = context["response"].json()["id"]
 
 
 @when(parsers.parse('student with CPF "{cpf}" requests their computer reservations'))
-def request_reservations(context, cpf):
+def request_reservations(client, context, cpf):
     context["user_cpf"] = cpf
-    db = SessionTest()
-    reservations = list_computer_reservations(user_cpf=cpf, db=db)
-    context["response"] = _success_response(200, [_response_body(reservation) for reservation in reservations])
-    db.close()
+    context["response"] = client.get(
+        "/api/equipment/reservations/",
+        params={"user_cpf": cpf},
+    )
 
 
 @when(parsers.parse('student "{student}" with CPF "{cpf}" requests to update that computer reservation'))
-def request_reservation_update(context, student, cpf):
-    db = SessionTest()
-    try:
-        payload = ComputerReservationUpdate(**_request_body(context))
-        reservation = update_computer_reservation(context["reservation_id"], payload, user_cpf=cpf, db=db)
-        context["response"] = _success_response(200, _response_body(reservation))
-    except HTTPException as exc:
-        context["response"] = _error_response(exc)
-    finally:
-        db.close()
+def request_reservation_update(client, context, student, cpf):
+    context["response"] = client.put(
+        f"/api/equipment/reservations/{context['reservation_id']}",
+        params={"user_cpf": cpf},
+        json=_request_body(context),
+    )
 
 
 @when(parsers.parse('student "{student}" with CPF "{cpf}" requests to cancel that computer reservation'))
-def request_reservation_cancellation(context, student, cpf):
-    db = SessionTest()
-    try:
-        cancel_computer_reservation(context["reservation_id"], user_cpf=cpf, db=db)
-        context["response"] = _success_response(204)
-    except HTTPException as exc:
-        context["response"] = _error_response(exc)
-    finally:
-        db.close()
+def request_reservation_cancellation(client, context, student, cpf):
+    context["response"] = client.delete(
+        f"/api/equipment/reservations/{context['reservation_id']}",
+        params={"user_cpf": cpf},
+    )
 
 
 @then(parsers.parse('the response status should be "{status_code:d}"'))
@@ -327,3 +329,230 @@ def reservation_no_longer_stored(context):
     reservation = db.query(ComputerReservation).filter(ComputerReservation.id == context["reservation_id"]).first()
     db.close()
     assert reservation is None
+
+
+def _create_api_reservation(
+    client,
+    room="Integration Lab",
+    cpf="52998224725",
+    name="Integration Student",
+    start="2026-08-10T08:00:00",
+    end="2026-08-10T10:00:00",
+):
+    return client.post(
+        "/api/equipment/reservations/",
+        params={"user_cpf": cpf, "user_name": name},
+        json={
+            "room": room,
+            "computer_quantity": 2,
+            "start_time": start,
+            "end_time": end,
+        },
+    )
+
+
+def test_create_rejects_unknown_user(client):
+    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
+
+    response = _create_api_reservation(client)
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"
+
+
+def test_create_rejects_inactive_user(client):
+    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
+    _ensure_user("Integration Student", "52998224725", active=False)
+
+    response = _create_api_reservation(client)
+
+    assert response.status_code == 403
+
+
+def test_create_rejects_user_name_mismatch(client):
+    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
+    _ensure_user("Registered Name", "52998224725")
+
+    response = _create_api_reservation(client)
+
+    assert response.status_code == 401
+
+
+def test_create_rejects_conflict_with_room_reservation(client):
+    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
+    _ensure_user("Integration Student", "52998224725")
+    db = SessionTest()
+    db.add(
+        Reservation(
+            user_cpf="52998224725",
+            user_name="Integration Student",
+            user_type="discente",
+            room="Integration Lab",
+            start_time=datetime(2026, 8, 10, 9, 0),
+            end_time=datetime(2026, 8, 10, 11, 0),
+            status=ReservationStatus.pending,
+        )
+    )
+    db.commit()
+    db.close()
+
+    response = _create_api_reservation(client)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "You already have a reservation at this time"
+
+
+def test_admin_can_list_confirm_and_deny_equipment_reservations(client):
+    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
+    _ensure_user("Integration Student", "52998224725")
+    first = _create_api_reservation(client)
+    second = _create_api_reservation(
+        client,
+        start="2026-08-10T11:00:00",
+        end="2026-08-10T13:00:00",
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    listed = client.get("/api/admin/equipment-reservations")
+    confirmed = client.patch(
+        f"/api/admin/equipment-reservations/{first.json()['id']}/confirm"
+    )
+    denied = client.patch(
+        f"/api/admin/equipment-reservations/{second.json()['id']}/deny"
+    )
+
+    assert listed.status_code == 200
+    assert len(listed.json()) == 2
+    assert confirmed.status_code == 200
+    assert confirmed.json()["reservation"]["status"] == "confirmed"
+    assert denied.status_code == 200
+    assert denied.json()["reservation"]["status"] == "denied"
+
+
+def test_maintenance_detects_and_denies_pending_equipment_reservation(client):
+    room = "Integration Lab"
+    teacher_cpf = "11111111111"
+    _insert_room(room, 10, RoomMaintenanceStatus.no)
+    _ensure_user("Integration Student", "52998224725")
+    db = SessionTest()
+    db.add(
+        User(
+            nome="Professor Integration",
+            cpf=teacher_cpf,
+            status=True,
+            senha="test-password-hash",
+            tipo=UserRole.DOCENTE,
+            siape="SIAPE-INTEGRATION",
+        )
+    )
+    db.add(
+        MaintenanceRequest(
+            teacher_cpf=teacher_cpf,
+            teacher_name="Professor Integration",
+            room=room,
+            description="Maintenance integration test",
+            status=MaintenanceStatus.pending,
+        )
+    )
+    db.commit()
+    maintenance = db.query(MaintenanceRequest).first()
+    db.close()
+
+    start = datetime.now() + timedelta(days=2)
+    created = _create_api_reservation(
+        client,
+        start=start.isoformat(),
+        end=(start + timedelta(hours=2)).isoformat(),
+    )
+    assert created.status_code == 201
+
+    warning = client.put(
+        f"/api/maintenance/admin/{maintenance.id}/confirm",
+        json={
+            "end_date": str(date.today() + timedelta(days=5)),
+            "force": False,
+        },
+    )
+    forced = client.put(
+        f"/api/maintenance/admin/{maintenance.id}/confirm",
+        json={
+            "end_date": str(date.today() + timedelta(days=5)),
+            "force": True,
+        },
+    )
+
+    assert warning.status_code == 409
+    assert created.json()["id"] in warning.json()["detail"][
+        "pending_equipment_reservation_ids"
+    ]
+    assert forced.status_code == 200
+    db = SessionTest()
+    reservation = db.get(ComputerReservation, created.json()["id"])
+    assert reservation.status == ComputerReservationStatus.denied
+    db.close()
+
+
+def test_scheduler_updates_expired_equipment_reservations(monkeypatch):
+    from services import reservation_scheduler
+
+    now = datetime.now() - timedelta(hours=2)
+    db = SessionTest()
+    db.add_all(
+        [
+            ComputerReservation(
+                user_cpf="52998224725",
+                user_name="Pending Student",
+                room="Integration Lab",
+                computer_quantity=1,
+                start_time=now,
+                end_time=now + timedelta(hours=1),
+                status=ComputerReservationStatus.pending,
+            ),
+            ComputerReservation(
+                user_cpf="52998224726",
+                user_name="Confirmed Student",
+                room="Integration Lab",
+                computer_quantity=1,
+                start_time=now - timedelta(hours=2),
+                end_time=now,
+                status=ComputerReservationStatus.confirmed,
+            ),
+        ]
+    )
+    db.commit()
+    ids = [reservation.id for reservation in db.query(ComputerReservation).all()]
+    db.close()
+    monkeypatch.setattr(reservation_scheduler, "SessionLocal", SessionTest)
+
+    reservation_scheduler._expire_reservations()
+
+    db = SessionTest()
+    reservations = {
+        reservation.id: reservation.status
+        for reservation in db.query(ComputerReservation)
+        .filter(ComputerReservation.id.in_(ids))
+        .all()
+    }
+    db.close()
+    assert reservations[ids[0]] == ComputerReservationStatus.denied
+    assert reservations[ids[1]] == ComputerReservationStatus.completed
+
+
+def test_deactivating_user_denies_equipment_reservations(client):
+    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
+    _ensure_user("Integration Student", "52998224725")
+    created = _create_api_reservation(client)
+    assert created.status_code == 201
+    db = SessionTest()
+    user = db.query(User).filter(User.cpf == "52998224725").first()
+    user_id = user.id
+    db.close()
+
+    response = client.patch(f"/users/{user_id}/deactivate")
+
+    assert response.status_code == 200
+    db = SessionTest()
+    reservation = db.get(ComputerReservation, created.json()["id"])
+    assert reservation.status == ComputerReservationStatus.denied
+    db.close()
