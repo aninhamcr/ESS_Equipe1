@@ -8,6 +8,7 @@ from models.reservation import Reservation, ReservationStatus
 from models.room import Room, RoomMaintenanceStatus
 from models.user import User, UserRole
 from schemas.reservation import ReservationCreate, ReservationUpdate
+from services.reservation_messages import ReservationMessages as Msg
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -23,17 +24,17 @@ def _get_active_user(db: Session, user_cpf: str, user_nome: str, user_senha: str
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuário não encontrado",
+            detail=Msg.USER_NOT_FOUND,
         )
     if user.nome != user_nome or not _pwd_context.verify(user_senha, user.senha):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas",
+            detail=Msg.INVALID_CREDENTIALS,
         )
     if not user.status:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conta desativada: não é possível realizar reservas",
+            detail=Msg.ACCOUNT_DISABLED,
         )
     return user
 
@@ -43,7 +44,7 @@ def _check_room_exists_and_available(db: Session, room_name: str, start: datetim
     if room is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sala não encontrada",
+            detail=Msg.ROOM_NOT_FOUND,
         )
     # Verifica sobreposição com qualquer manutenção confirmada no período,
     # independente do maintenance_status da sala (yes ou scheduled)
@@ -61,7 +62,7 @@ def _check_room_exists_and_available(db: Session, room_name: str, start: datetim
     if conflict:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Sala em manutenção ou com manutenção agendada",
+            detail=Msg.ROOM_UNDER_MAINTENANCE,
         )
 
 
@@ -76,7 +77,7 @@ def _check_start_not_in_past(start: datetime) -> None:
     if start_naive < _now_brt() - timedelta(minutes=5):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Não é possível criar reservas com data/hora de início no passado",
+            detail=Msg.START_IN_PAST,
         )
 
 
@@ -84,7 +85,7 @@ def _check_end_after_start(start: datetime, end: datetime) -> None:
     if end <= start:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="O horário de fim deve ser posterior ao horário de início",
+            detail=Msg.END_NOT_AFTER_START,
         )
 
 
@@ -105,7 +106,7 @@ def _check_confirmed_conflict(
     if query.first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Conflito de horário: a sala já está reservada neste período",
+            detail=Msg.CONFIRMED_CONFLICT,
         )
 
 
@@ -126,7 +127,7 @@ def _check_user_conflict(
     if query.first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Você já possui uma reserva neste horário",
+            detail=Msg.USER_TIME_CONFLICT,
         )
 
 
@@ -159,11 +160,11 @@ def update_reservation(
     _get_active_user(db, user_cpf, user_nome, user_senha)
     reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
     if reservation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reserva não encontrada")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=Msg.RESERVATION_NOT_FOUND)
     if reservation.user_cpf != user_cpf:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado: você não é o dono desta reserva")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=Msg.NOT_OWNER)
     if reservation.status != ReservationStatus.pending:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Só é possível editar/excluir reservas pendentes")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Msg.ONLY_PENDING_EDITABLE)
     new_room  = data.room       if data.room       is not None else reservation.room
     new_start = data.start_time if data.start_time is not None else reservation.start_time
     new_end   = data.end_time   if data.end_time   is not None else reservation.end_time
@@ -187,10 +188,10 @@ def cancel_reservation(db: Session, reservation_id: int, user_cpf: str, user_nom
     _get_active_user(db, user_cpf, user_nome, user_senha)
     reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
     if reservation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reserva não encontrada")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=Msg.RESERVATION_NOT_FOUND)
     if reservation.user_cpf != user_cpf:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado: você não é o dono desta reserva")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=Msg.NOT_OWNER)
     if reservation.status != ReservationStatus.pending:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Só é possível editar/excluir reservas pendentes")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Msg.ONLY_PENDING_EDITABLE)
     reservation.status = ReservationStatus.denied
     db.commit()
