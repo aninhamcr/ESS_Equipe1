@@ -12,7 +12,11 @@ async function request(path, options = {}) {
     const detail = body.detail;
     let msg;
     if (Array.isArray(detail)) {
-      msg = detail.map((e) => e.msg).join(", ");
+      // Erros de validação do FastAPI/Pydantic — limpa o prefixo "Value error, " que vem dos field_validators
+      msg = detail
+        .map((e) => e.msg)
+        .join(", ")
+        .replace(/Value error,\s*/gi, "");
     } else if (typeof detail === "string") {
       msg = detail;
     } else if (detail && typeof detail === "object" && typeof detail.message === "string") {
