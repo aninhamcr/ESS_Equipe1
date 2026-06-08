@@ -15,10 +15,10 @@ class ComputerReservationStatus(str, enum.Enum):
 class ComputerReservation(Base):
     __tablename__ = "equipment_reservations"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_cpf = Column(String, nullable=False)
-    user_name = Column(String, nullable=False)
-    room = Column(String, nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_cpf = Column(String(14), nullable=False, index=True)
+    user_name = Column(String(255), nullable=False)
+    room = Column(String(255), nullable=False, index=True)
     computer_quantity = Column(Integer, nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
