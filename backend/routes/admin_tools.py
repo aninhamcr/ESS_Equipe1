@@ -25,6 +25,7 @@ from database import get_db
 from models.user import User, UserRole
 from models.reservation import Reservation, ReservationStatus
 from models.room import Room
+from models.maintenance import MaintenanceRequest, MaintenanceStatus
 from schemas.user import UserResponse
 
 
@@ -176,4 +177,119 @@ def seed_reservations(
     return SeedReservationsResponse(
         created=created,
         message=f"{created} reserva(s) gerada(s) com sucesso",
+    )
+
+
+# ── Gerador de manutenções ─────────────────────────────────────────────────
+
+class SeedMaintenanceRequest(BaseModel):
+    """
+    Configuração do gerador de solicitações de manutenção em lote.
+
+    - count: quantidade de solicitações a criar.
+    - status: status inicial (random sorteia entre pending/confirmed/denied).
+    - room: nome da sala alvo; se None, sorteia entre as cadastradas.
+    - days_window: para solicitações confirmadas, janela em dias para o end_date.
+    """
+    count: int = Field(..., ge=1, le=100)
+    status: Literal["pending", "confirmed", "denied", "random"] = "pending"
+    room: Optional[str] = None
+    days_window: int = Field(14, ge=1, le=180)
+
+
+class SeedMaintenanceResponse(BaseModel):
+    created: int
+    message: str
+
+
+# Descrições plausíveis sorteadas para popular o campo description
+_MAINTENANCE_DESCRIPTIONS = [
+    "Ar-condicionado com vazamento de água.",
+    "Projetor não está ligando.",
+    "Lâmpadas queimadas no fundo da sala.",
+    "Tomadas soltas próximas à lousa.",
+    "Cadeiras quebradas precisam ser substituídas.",
+    "Quadro branco com manchas permanentes.",
+    "Computador da mesa do professor não inicializa.",
+    "Fechadura da porta com defeito.",
+    "Cortinas rasgadas, sala sem privacidade.",
+    "Persiana travada, não é possível abrir/fechar.",
+    "Cheiro forte de mofo, suspeita de infiltração.",
+    "Cabos de rede expostos, risco de tropeço.",
+]
+
+
+def _pick_maintenance_status(choice: str) -> MaintenanceStatus:
+    if choice == "random":
+        return random.choice([
+            MaintenanceStatus.pending,
+            MaintenanceStatus.confirmed,
+            MaintenanceStatus.denied,
+        ])
+    return MaintenanceStatus(choice)
+
+
+@router.post(
+    "/seed-maintenance",
+    response_model=SeedMaintenanceResponse,
+    summary="Gerar solicitações de manutenção em lote para testes",
+)
+def seed_maintenance(
+    payload: SeedMaintenanceRequest,
+    db: Session = Depends(get_db),
+) -> SeedMaintenanceResponse:
+    # Solicitações de manutenção são abertas por docentes
+    teachers = (
+        db.query(User)
+        .filter(User.tipo == UserRole.DOCENTE, User.status.is_(True))
+        .all()
+    )
+    if not teachers:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhum docente ativo disponível para gerar solicitações",
+        )
+
+    if payload.room:
+        rooms = db.query(Room).filter(Room.name == payload.room).all()
+        if not rooms:
+            raise HTTPException(status_code=404, detail=f"Sala '{payload.room}' não encontrada")
+    else:
+        rooms = db.query(Room).all()
+        if not rooms:
+            raise HTTPException(status_code=400, detail="Nenhuma sala cadastrada para gerar solicitações")
+
+    today = datetime.now().date()
+
+    created = 0
+    for _ in range(payload.count):
+        teacher = random.choice(teachers)
+        room = random.choice(rooms)
+        status_val = _pick_maintenance_status(payload.status)
+
+        # Pendentes/negadas não têm período; confirmadas recebem start=hoje e end=hoje+offset
+        start_date = None
+        end_date = None
+        if status_val == MaintenanceStatus.confirmed:
+            offset = random.randint(1, payload.days_window)
+            start_date = today
+            end_date = today + timedelta(days=offset)
+
+        request = MaintenanceRequest(
+            teacher_cpf=teacher.cpf,
+            teacher_name=teacher.nome,
+            room=room.name,
+            description=random.choice(_MAINTENANCE_DESCRIPTIONS),
+            status=status_val,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        db.add(request)
+        created += 1
+
+    db.commit()
+
+    return SeedMaintenanceResponse(
+        created=created,
+        message=f"{created} solicitação(ões) de manutenção gerada(s) com sucesso",
     )

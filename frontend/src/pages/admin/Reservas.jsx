@@ -309,7 +309,7 @@ const s = {
   btnSm:        { background: "#06d6a0", color: "#fff", border: "none", borderRadius: "5px", padding: "4px 12px", fontSize: "0.8rem", fontWeight: "600", cursor: "pointer", whiteSpace: "nowrap" },
   actionsCell:  { display: "inline-flex", gap: "0.4rem", alignItems: "center" },
   tabs:         { display: "flex", gap: "0.25rem", borderBottom: "1px solid rgba(0,0,0,0.06)", marginBottom: "1.25rem" },
-  tab:          { display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.55rem 0.9rem", background: "transparent", border: "none", borderBottom: "2px solid transparent", marginBottom: "-1px", cursor: "pointer", fontSize: "0.88rem", fontWeight: "600", color: "#666" },
+  tab:          { display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.55rem 0.9rem", background: "transparent", border: "none", borderBottomWidth: "2px", borderBottomStyle: "solid", borderBottomColor: "transparent", marginBottom: "-1px", cursor: "pointer", fontSize: "0.88rem", fontWeight: "600", color: "#666" },
   tabActive:    { color: "#1e3a5f", borderBottomColor: "#f5a623" },
   tabCount:     { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: "22px", height: "20px", padding: "0 6px", borderRadius: "10px", background: "#f0f0f5", color: "#666", fontSize: "0.72rem", fontWeight: "700" },
   tabCountActive: { background: "#1e3a5f", color: "#fff" },

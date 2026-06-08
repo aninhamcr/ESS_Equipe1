@@ -10,11 +10,21 @@ async function request(path, options = {}) {
   const body = await res.json().catch(() => ({ detail: "Erro desconhecido" }));
   if (!res.ok) {
     const detail = body.detail;
+    let msg;
     if (Array.isArray(detail)) {
-      const msg = detail.map((e) => e.msg).join(", ");
-      throw new Error(msg);
+      msg = detail.map((e) => e.msg).join(", ");
+    } else if (typeof detail === "string") {
+      msg = detail;
+    } else if (detail && typeof detail === "object" && typeof detail.message === "string") {
+      // Detail estruturado (ex.: { message, pending_reservation_ids }) — preserva o objeto em err.detail
+      msg = detail.message;
+    } else {
+      msg = "Erro na requisição";
     }
-    throw new Error(typeof detail === "string" ? detail : "Erro na requisição");
+    const err = new Error(msg);
+    err.status = res.status;
+    err.detail = detail;
+    throw err;
   }
   return body;
 }

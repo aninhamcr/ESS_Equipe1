@@ -406,6 +406,120 @@ function ReservationSeeder({ onToast }) {
   );
 }
 
+// ── Gerador de manutenções (script) ──────────────────────────────────
+function MaintenanceSeeder({ onToast }) {
+  const [rooms, setRooms]     = useState([]);
+  const [form, setForm]       = useState({
+    count: 5,
+    status: "pending",
+    room: "",
+    days_window: 14,
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get("/api/rooms/?limit=100")
+      .then(({ rooms }) => setRooms(rooms || []))
+      .catch(() => setRooms([]));
+  }, []);
+
+  function set(field) {
+    return (e) => {
+      const value = e.target.type === "number"
+        ? Number(e.target.value)
+        : e.target.value;
+      setForm((f) => ({ ...f, [field]: value }));
+    };
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const payload = {
+        count: form.count,
+        status: form.status,
+        days_window: form.days_window,
+        ...(form.room ? { room: form.room } : {}),
+      };
+      const res = await api.post("/api/admin/tools/seed-maintenance", payload);
+      onToast("success", res.message);
+    } catch (err) {
+      onToast("error", err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={s.card}>
+      <h2 style={s.cardTitle}>Gerador de manutenções (script)</h2>
+      <p style={s.muted}>
+        Gera solicitações de manutenção em massa sorteando entre os docentes ativos
+        do banco. Útil para popular o sistema em demos e testes da página /manutencoes.
+      </p>
+
+      <form onSubmit={handleSubmit} style={{ ...s.form, marginTop: "1rem" }}>
+        <div style={s.grid2}>
+          <div style={s.field}>
+            <label style={s.label} htmlFor="seed-maint-count">Quantidade (1–100)</label>
+            <input
+              id="seed-maint-count"
+              style={s.input}
+              type="number"
+              min={1}
+              max={100}
+              value={form.count}
+              onChange={set("count")}
+              required
+            />
+          </div>
+
+          <div style={s.field}>
+            <label style={s.label} htmlFor="seed-maint-status">Status inicial</label>
+            <select id="seed-maint-status" style={s.input} value={form.status} onChange={set("status")}>
+              <option value="pending">Pendente</option>
+              <option value="confirmed">Confirmada</option>
+              <option value="denied">Negada</option>
+              <option value="random">Aleatório</option>
+            </select>
+          </div>
+
+          <div style={s.field}>
+            <label style={s.label} htmlFor="seed-maint-room">Sala</label>
+            <select id="seed-maint-room" style={s.input} value={form.room} onChange={set("room")}>
+              <option value="">Aleatória (qualquer cadastrada)</option>
+              {rooms.map((r) => (
+                <option key={r.name} value={r.name}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={s.field}>
+            <label style={s.label} htmlFor="seed-maint-days">Janela do fim (dias, apenas confirmadas)</label>
+            <input
+              id="seed-maint-days"
+              style={s.input}
+              type="number"
+              min={1}
+              max={180}
+              value={form.days_window}
+              onChange={set("days_window")}
+              required
+            />
+          </div>
+        </div>
+
+        <div style={{ marginTop: "1rem" }}>
+          <button type="submit" style={s.btn} disabled={loading}>
+            {loading ? "Gerando..." : "Gerar manutenções"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ── Página principal ─────────────────────────────────────────────────
 export default function Tools() {
   const [toast, setToast] = useState({ type: "", text: "" });
@@ -436,6 +550,7 @@ export default function Tools() {
 
       <UsersManager onToast={showToast} />
       <ReservationSeeder onToast={showToast} />
+      <MaintenanceSeeder onToast={showToast} />
     </Navbar>
   );
 }
