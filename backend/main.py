@@ -59,14 +59,16 @@ app.include_router(equipment_router)
 
 app.include_router(list_reservation_router)
 app.include_router(admin_reservation_router)
+
 app.include_router(admin_tools_router)
 app.include_router(room_router)  
 
-#rotas de teste (APENAS em ambiente de testes)
+
+# Rotas de teste (APENAS em ambiente de testes — ENV=test)
 if os.getenv("ENV") == "test":
     from routes.tests_user import router as tests_user_router
     app.include_router(tests_user_router)
-    print("⚠️  Rotas de teste registradas (ENV=test)")
+    print("[ENV=test] Rotas de teste registradas")
 
 
 @app.get("/", tags=["Root"])
