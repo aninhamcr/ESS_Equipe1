@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,7 +55,14 @@ app.include_router(equipment_router)
 
 app.include_router(list_reservation_router)
 app.include_router(admin_reservation_router)
-app.include_router(room_router)  
+app.include_router(room_router)
+
+# Rotas de teste (APENAS em ambiente de testes — ENV=test)
+if os.getenv("ENV") == "test":
+    from routes.tests_user import router as tests_user_router
+    app.include_router(tests_user_router)
+    print("⚠️  Rotas de teste registradas (ENV=test)")
+
 
 @app.get("/", tags=["Root"])
 def root():

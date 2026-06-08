@@ -337,7 +337,7 @@ def usuario_tenta_reservar_por_nome(client, context, nome, room, start, end):
     senha = _NOME_SENHA[nome]
     r = client.post(
         "/api/reservations/",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": room, "start_time": start, "end_time": end},
     )
     context["response"] = r
@@ -349,7 +349,7 @@ def usuario_tenta_reservar_por_nome(client, context, nome, room, start, end):
 def usuario_tenta_reservar_por_cpf(client, context, cpf, nome, senha, room, start, end):
     r = client.post(
         "/api/reservations/",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": room, "start_time": start, "end_time": end},
     )
     context["response"] = r
@@ -364,7 +364,7 @@ def usuario_tenta_editar_fim_por_nome(client, context, nome, new_end, **_):
     senha = _NOME_SENHA[nome]
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"end_time": new_end},
     )
     context["response"] = r
@@ -376,7 +376,7 @@ def usuario_tenta_editar_sala_por_nome(client, context, nome, new_room, **_):
     senha = _NOME_SENHA[nome]
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room},
     )
     context["response"] = r
@@ -388,7 +388,7 @@ def usuario_tenta_editar_sala_e_fim_por_nome(client, context, nome, new_room, ne
     senha = _NOME_SENHA[nome]
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room, "end_time": new_end},
     )
     context["response"] = r
@@ -400,7 +400,7 @@ def usuario_tenta_cancelar_por_nome(client, context, nome, **_):
     senha = _NOME_SENHA[nome]
     r = client.delete(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
     )
     context["response"] = r
 
@@ -409,7 +409,7 @@ def usuario_tenta_cancelar_por_nome(client, context, nome, **_):
 def usuario_tenta_editar_fim(client, context, cpf, nome, senha, new_end, **_):
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"end_time": new_end},
     )
     context["response"] = r
@@ -419,7 +419,7 @@ def usuario_tenta_editar_fim(client, context, cpf, nome, senha, new_end, **_):
 def usuario_tenta_editar_sala(client, context, cpf, nome, senha, new_room, **_):
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room},
     )
     context["response"] = r
@@ -429,7 +429,7 @@ def usuario_tenta_editar_sala(client, context, cpf, nome, senha, new_room, **_):
 def usuario_tenta_editar_sala_e_fim(client, context, cpf, nome, senha, new_room, new_end, **_):
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room, "end_time": new_end},
     )
     context["response"] = r
@@ -439,7 +439,7 @@ def usuario_tenta_editar_sala_e_fim(client, context, cpf, nome, senha, new_room,
 def usuario_tenta_cancelar_id(client, context, cpf, nome, senha, **_):
     r = client.delete(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
     )
     context["response"] = r
 
