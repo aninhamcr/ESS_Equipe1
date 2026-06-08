@@ -7,16 +7,17 @@ Só são registradas quando ENV=test no .env.
 NUNCA registrar esse router em produção.
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
-from models.user import User
+from models.user import User, UserRole
 from models.reservation import Reservation, ReservationStatus
 from models.room import Room, RoomMaintenanceStatus
+from models.maintenance import MaintenanceRequest, MaintenanceStatus
 
 router = APIRouter(prefix="/test", tags=["Test Utils"])
 
@@ -28,6 +29,9 @@ CPFS_PERMITIDOS = [
 
 # Salas usadas exclusivamente pelos testes de GUI (Cypress).
 SALAS_TESTE = ["D005", "E101"]
+
+# Docente usado apenas para semear manutenções de teste.
+CPF_DOCENTE_MANUTENCAO = "97405315046"
 
 
 @router.delete("/users/{cpf}", status_code=204)
@@ -44,7 +48,7 @@ def deletar_usuario_teste(cpf: str, db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.cpf == cpf).first()
     if not user:
-        return 
+        return
 
     # Remove reservas associadas antes de remover o usuário
     db.query(Reservation).filter(Reservation.user_cpf == cpf).delete()
@@ -143,3 +147,51 @@ def semear_reserva_teste(data: SeedReservation, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(reserva)
     return {"id": reserva.id, "status": reserva.status.value, "room": reserva.room}
+
+
+@router.delete("/maintenance", status_code=204)
+def deletar_manutencoes_teste(db: Session = Depends(get_db)):
+    """
+    Remove manutenções das salas de teste. Deve rodar ANTES de apagar usuários
+    (a FK teacher_cpf -> users.cpf impede apagar o docente antes da manutenção).
+    """
+    db.query(MaintenanceRequest).filter(
+        MaintenanceRequest.room.in_(SALAS_TESTE)
+    ).delete(synchronize_session=False)
+    db.commit()
+
+
+class SeedMaintenance(BaseModel):
+    room: str
+    start_date: date
+    end_date: date
+
+
+@router.post("/maintenance/seed", status_code=201)
+def semear_manutencao_teste(data: SeedMaintenance, db: Session = Depends(get_db)):
+    """Cria uma manutenção confirmada para uma sala de teste no período informado."""
+    # Garante o docente responsável (FK obrigatória).
+    if db.query(User).filter(User.cpf == CPF_DOCENTE_MANUTENCAO).first() is None:
+        db.add(User(
+            nome="Docente Manutencao",
+            cpf=CPF_DOCENTE_MANUTENCAO,
+            status=True,
+            senha="senha-manutencao",
+            tipo=UserRole.DOCENTE,
+            siape=CPF_DOCENTE_MANUTENCAO,
+        ))
+        db.commit()
+
+    manutencao = MaintenanceRequest(
+        teacher_cpf=CPF_DOCENTE_MANUTENCAO,
+        teacher_name="Docente Manutencao",
+        room=data.room,
+        description="Manutencao agendada (teste)",
+        status=MaintenanceStatus.confirmed,
+        start_date=data.start_date,
+        end_date=data.end_date,
+    )
+    db.add(manutencao)
+    db.commit()
+    db.refresh(manutencao)
+    return {"id": manutencao.id, "room": manutencao.room}

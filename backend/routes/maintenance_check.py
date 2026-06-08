@@ -19,6 +19,7 @@ from schemas.maintenance_check import (
     MaintenanceDenyRequest,
 )
 from services.maintenance_check import (
+    complete_maintenance,
     confirm_maintenance,
     deny_maintenance,
     list_maintenance_requests,
@@ -61,3 +62,14 @@ def deny_request(
 ):
     """Cenário 3 — nega a solicitação; sala permanece disponível para reservas."""
     return deny_maintenance(db, request_id, data)
+
+
+# ── PUT /{id}/complete ────────────────────────────────────────────────────────
+
+@router.put("/{request_id}/complete", response_model=MaintenanceCheckResponse)
+def complete_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+):
+    """Encerra a manutenção: status → completed e sala volta ao status normal."""
+    return complete_maintenance(db, request_id)

@@ -3,6 +3,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from database import engine, Base
 
@@ -22,6 +23,8 @@ from routes.equipment import router as equipment_router
 from routes.list_reservation import router as list_reservation_router
 from routes.admin_reservation import router as admin_reservation_router
 from services.reservation_scheduler import start_scheduler
+
+load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 

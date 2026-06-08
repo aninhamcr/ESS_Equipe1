@@ -8,7 +8,14 @@ async function request(path, options = {}) {
   if (res.status === 204) return null;
 
   const body = await res.json().catch(() => ({ detail: "Erro desconhecido" }));
-  if (!res.ok) throw new Error(body.detail || "Erro na requisição");
+  if (!res.ok) {
+    const detail = body.detail;
+    if (Array.isArray(detail)) {
+      const msg = detail.map((e) => e.msg).join(", ");
+      throw new Error(msg);
+    }
+    throw new Error(typeof detail === "string" ? detail : "Erro na requisição");
+  }
   return body;
 }
 

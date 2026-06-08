@@ -25,6 +25,7 @@ from models.maintenance_check import (
     ReservationConflictType,
 )
 from models.reservation import Reservation, ReservationStatus
+from models.room import Room, RoomMaintenanceStatus
 from schemas.maintenance_check import MaintenanceConfirmRequest, MaintenanceDenyRequest
 
 
@@ -150,6 +151,43 @@ def confirm_maintenance(
     request.status = MaintenanceCheckStatus.confirmed
     request.start_date = date.today()
     request.end_date = data.end_date
+
+    # Atualiza o status da sala para "Em manutenção agendada" no dia de início
+    room = db.query(Room).filter(Room.name == request.room).first()
+    if room:
+        room.maintenance_status = RoomMaintenanceStatus.scheduled
+
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+def complete_maintenance(db: Session, request_id: int) -> MaintenanceRequest:
+    """
+    Encerra uma manutenção confirmada:
+      - Marca a solicitação como 'completed'
+      - Restaura o maintenance_status da sala para 'no' (sem manutenção)
+    Chamado pelo scheduler quando end_date é atingida, ou manualmente via rota.
+    """
+    request = (
+        db.query(MaintenanceRequest)
+        .filter(MaintenanceRequest.id == request_id)
+        .first()
+    )
+    if not request:
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada")
+
+    if request.status != MaintenanceCheckStatus.confirmed:
+        raise HTTPException(
+            status_code=400,
+            detail="Só é possível concluir solicitações com status 'Confirmado'",
+        )
+
+    request.status = MaintenanceCheckStatus.completed
+
+    room = db.query(Room).filter(Room.name == request.room).first()
+    if room:
+        room.maintenance_status = RoomMaintenanceStatus.no
 
     db.commit()
     db.refresh(request)

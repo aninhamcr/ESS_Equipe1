@@ -4,11 +4,6 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 
-const REDIRECT = {
-  discente: "/reservas-de-sala",
-  docente:  "/reservas-de-sala",
-  admin:    "/salas",
-};
 
 export default function Login() {
   const [cpf, setCpf] = useState("");
@@ -26,9 +21,13 @@ export default function Login() {
     try {
       const userData = await api.post("/users/login", { cpf, senha });
       login({ ...userData, senha });
-      navigate(REDIRECT[userData.tipo] || "/reservas-de-sala");
+      navigate("/perfil");
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.response?.data?.detail ||
+        err.message ||
+        "Erro ao fazer login"
+      );
     } finally {
       setLoading(false);
     }
@@ -48,13 +47,13 @@ export default function Login() {
         <form onSubmit={handleSubmit} style={s.form}>
           <div style={s.field}>
             <label style={s.label}>CPF</label>
-            <input style={s.input} placeholder="000.000.000-00" value={cpf}
+            <input name="cpf" style={s.input} placeholder="000.000.000-00" value={cpf}
               onChange={(e) => setCpf(e.target.value)} required />
           </div>
           <div style={s.field}>
             <label style={s.label}>Senha</label>
             <div style={s.passwordField}>
-              <input style={s.inputPassword} type={mostrarSenha ? "text" : "password"} placeholder="••••••••" value={senha}
+              <input name="senha" style={s.inputPassword} type={mostrarSenha ? "text" : "password"} placeholder="••••••••" value={senha}
                 onChange={(e) => setSenha(e.target.value)} required />
               <button
                 type="button"
