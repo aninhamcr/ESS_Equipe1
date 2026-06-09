@@ -3,7 +3,7 @@ Feature: Room Service - Gerenciar salas
 Scenario: Rejeitar computadores negativos
 Given nenhuma sala com nome "D005" está armazenada no sistema
 When o sistema recebe uma requisição de cadastro de sala com nome "D005", capacidade "80", descrição "sala de reunião" e computadores "-1"
-Then o serviço processa a criação da sala
+And o serviço processa a criação da sala
 Then a requisição é rejeitada porque os dados são inválidos
 And nenhuma sala é armazenada no sistema
 
