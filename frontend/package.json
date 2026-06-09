@@ -3,7 +3,17 @@
   "private": true,
   "scripts": {
     "dev": "parcel src/index.html --port 3000",
-    "build": "parcel build src/index.html"
+    "build": "parcel build src/index.html",
+    "cy:open": "cypress open",
+    "cy:run": "cypress run",
+    "cy:salas": "cypress run --spec \"../features/room-crud.feature\"",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "@badeball/cypress-cucumber-preprocessor": {
+    "stepDefinitions": [
+      "src/__tests__/**/*.{js,jsx}"
+    ]
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -11,6 +21,18 @@
     "react-router-dom": "^6.23.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/preset-react": "^7.29.7",
+    "@badeball/cypress-cucumber-preprocessor": "^24.0.1",
+    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.8",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "babel-jest": "^30.4.1",
+    "cypress": "^15.16.0",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
     "parcel": "^2.12.0"
   },
   "browserslist": "> 0.5%, last 2 versions, not dead"
