@@ -7,12 +7,14 @@
     "cy:open": "cypress open",
     "cy:run": "cypress run",
     "cy:salas": "cypress run --spec \"../features/room-crud.feature\"",
+    "cy:room": "cypress run --spec \"tests/features/room.feature\"",
+    "cy:all": "cypress run --spec \"tests/features/**/*.feature\"",
     "test": "jest",
     "test:watch": "jest --watch"
   },
   "@badeball/cypress-cucumber-preprocessor": {
     "stepDefinitions": [
-      "src/__tests__/**/*.{js,jsx}"
+      "tests/**/*.{js,jsx}"
     ]
   },
   "dependencies": {
