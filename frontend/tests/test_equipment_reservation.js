@@ -11,9 +11,9 @@ import {
   formatReservationDate,
   formatReservationTime,
   toIso,
-} from "../src/domain/equipmentReservation.mjs";
+} from "../src/pages/discente/ReservasEquipamentos.jsx";
 
-// Os mesmos steps cobrem cenários marcados semanticamente como GUI e/ou E2E.
+// Os mesmos steps cobrem os cenários de GUI, E2E e métodos internos.
 const FRONTEND_URL = Cypress.env("FRONTEND_URL") || "http://localhost:3000";
 const API_URL = Cypress.env("API_URL") || "http://localhost:8000";
 const DEFAULT_PASSWORD = "senha123";

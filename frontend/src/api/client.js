@@ -1,4 +1,6 @@
-const BASE_URL = process.env.API_URL || "http://localhost:8000";
+const BASE_URL = (
+  typeof process !== "undefined" && process.env?.API_URL
+) || "http://localhost:8000";
 
 async function request(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...options.headers };
