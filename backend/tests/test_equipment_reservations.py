@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 import os
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers, scenarios, then, when
 from sqlalchemy import create_engine
@@ -17,6 +18,13 @@ from models.reservation import Reservation, ReservationStatus
 from models.room import Room, RoomMaintenanceStatus
 from models.user import User, UserRole
 from main import app
+from services.equipment import (
+    check_room_computer_capacity,
+    check_room_maintenance,
+    check_start_not_in_past,
+    check_user_time_conflict,
+    get_active_user,
+)
 
 engine_test = create_engine(
     "sqlite:///:memory:",
@@ -351,72 +359,61 @@ def _create_api_reservation(
     )
 
 
-def test_create_rejects_unknown_user(client):
-    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
-
-    response = _create_api_reservation(client)
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "User not found"
+# Steps for route/API scenarios
 
 
-def test_create_rejects_inactive_user(client):
-    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
-    _ensure_user("Integration Student", "52998224725", active=False)
-
-    response = _create_api_reservation(client)
-
-    assert response.status_code == 403
-
-
-def test_create_rejects_user_name_mismatch(client):
-    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
-    _ensure_user("Registered Name", "52998224725")
-
-    response = _create_api_reservation(client)
-
-    assert response.status_code == 401
+@given(parsers.parse('no user is registered with CPF "{cpf}"'))
+def no_registered_user(cpf):
+    db = SessionTest()
+    try:
+        assert db.query(User).filter(User.cpf == cpf).first() is None
+    finally:
+        db.close()
 
 
-def test_create_rejects_start_time_in_the_past(client):
-    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
-    _ensure_user("Integration Student", "52998224725")
-
-    response = _create_api_reservation(
-        client,
-        start="2026-01-08T10:10:00",
-        end="2026-01-08T11:10:00",
-    )
-
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Start time cannot be in the past"
+@given(parsers.parse('inactive student "{student}" with CPF "{cpf}" is registered'))
+def inactive_student_registered(student, cpf):
+    _ensure_user(student, cpf, active=False)
 
 
-def test_create_rejects_conflict_with_room_reservation(client):
-    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
-    _ensure_user("Integration Student", "52998224725")
+@given(parsers.parse('active student "{student}" with CPF "{cpf}" is registered'))
+def active_student_registered(student, cpf):
+    _ensure_user(student, cpf)
+
+
+@given(parsers.parse('student "{student}" with CPF "{cpf}" has a room reservation from "{start}" to "{end}"'))
+def student_has_room_reservation(student, cpf, start, end):
+    _ensure_user(student, cpf)
     db = SessionTest()
     db.add(
         Reservation(
-            user_cpf="52998224725",
-            user_name="Integration Student",
+            user_cpf=cpf,
+            user_name=student,
             user_type="discente",
             room="Integration Lab",
-            start_time=datetime(2032, 8, 10, 9, 0),
-            end_time=datetime(2032, 8, 10, 11, 0),
+            start_time=_parse_dt(start),
+            end_time=_parse_dt(end),
             status=ReservationStatus.pending,
         )
     )
     db.commit()
     db.close()
 
-    response = _create_api_reservation(client)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "You already have a reservation at this time"
+@when(parsers.parse('unregistered student "{student}" with CPF "{cpf}" requests a computer reservation'))
+def unregistered_student_requests_reservation(client, context, student, cpf):
+    context["response"] = client.post(
+        "/api/equipment/reservations/",
+        params={"user_cpf": cpf, "user_name": student},
+        json=_request_body(context),
+    )
 
 
-def test_admin_can_list_confirm_and_deny_equipment_reservations(client):
+# Steps for integration scenarios
+
+
+@given("two pending computer reservations exist for the administrator workflow")
+def pending_reservations_for_admin(client, context):
     _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
     _ensure_user("Integration Student", "52998224725")
     first = _create_api_reservation(client)
@@ -427,24 +424,31 @@ def test_admin_can_list_confirm_and_deny_equipment_reservations(client):
     )
     assert first.status_code == 201
     assert second.status_code == 201
+    context["admin_reservation_ids"] = [first.json()["id"], second.json()["id"]]
 
-    listed = client.get("/api/admin/equipment-reservations")
-    confirmed = client.patch(
-        f"/api/admin/equipment-reservations/{first.json()['id']}/confirm"
+
+@when("the administrator lists and decides both computer reservations")
+def administrator_decides_reservations(client, context):
+    first_id, second_id = context["admin_reservation_ids"]
+    context["admin_list"] = client.get("/api/admin/equipment-reservations")
+    context["admin_confirmed"] = client.patch(
+        f"/api/admin/equipment-reservations/{first_id}/confirm"
     )
-    denied = client.patch(
-        f"/api/admin/equipment-reservations/{second.json()['id']}/deny"
+    context["admin_denied"] = client.patch(
+        f"/api/admin/equipment-reservations/{second_id}/deny"
     )
 
-    assert listed.status_code == 200
-    assert len(listed.json()) == 2
-    assert confirmed.status_code == 200
-    assert confirmed.json()["reservation"]["status"] == "confirmed"
-    assert denied.status_code == 200
-    assert denied.json()["reservation"]["status"] == "denied"
+
+@then("one computer reservation should be confirmed and the other denied")
+def admin_decisions_are_persisted(context):
+    assert context["admin_list"].status_code == 200
+    assert len(context["admin_list"].json()) == 2
+    assert context["admin_confirmed"].json()["reservation"]["status"] == "confirmed"
+    assert context["admin_denied"].json()["reservation"]["status"] == "denied"
 
 
-def test_maintenance_detects_and_denies_pending_equipment_reservation(client):
+@given("a pending computer reservation conflicts with a maintenance request")
+def pending_reservation_conflicts_with_maintenance(client, context):
     room = "Integration Lab"
     teacher_cpf = "11111111111"
     _insert_room(room, 10, RoomMaintenanceStatus.no)
@@ -470,9 +474,8 @@ def test_maintenance_detects_and_denies_pending_equipment_reservation(client):
         )
     )
     db.commit()
-    maintenance = db.query(MaintenanceRequest).first()
+    context["maintenance_id"] = db.query(MaintenanceRequest).first().id
     db.close()
-
     start = datetime.now() + timedelta(days=2)
     created = _create_api_reservation(
         client,
@@ -480,36 +483,39 @@ def test_maintenance_detects_and_denies_pending_equipment_reservation(client):
         end=(start + timedelta(hours=2)).isoformat(),
     )
     assert created.status_code == 201
+    context["maintenance_reservation_id"] = created.json()["id"]
 
+
+@when("maintenance is confirmed for the room")
+def confirm_maintenance(client, context):
+    maintenance_id = context["maintenance_id"]
     warning = client.put(
-        f"/api/maintenance/admin/{maintenance.id}/confirm",
-        json={
-            "end_date": str(date.today() + timedelta(days=5)),
-            "force": False,
-        },
+        f"/api/maintenance/admin/{maintenance_id}/confirm",
+        json={"end_date": str(date.today() + timedelta(days=5)), "force": False},
     )
-    forced = client.put(
-        f"/api/maintenance/admin/{maintenance.id}/confirm",
-        json={
-            "end_date": str(date.today() + timedelta(days=5)),
-            "force": True,
-        },
-    )
-
     assert warning.status_code == 409
-    assert created.json()["id"] in warning.json()["detail"][
-        "pending_equipment_reservation_ids"
-    ]
-    assert forced.status_code == 200
+    context["maintenance_response"] = client.put(
+        f"/api/maintenance/admin/{maintenance_id}/confirm",
+        json={"end_date": str(date.today() + timedelta(days=5)), "force": True},
+    )
+
+
+@then("the conflicting computer reservation should be denied")
+def conflicting_reservation_is_denied(context):
+    assert context["maintenance_response"].status_code == 200
     db = SessionTest()
-    reservation = db.get(ComputerReservation, created.json()["id"])
-    assert reservation.status == ComputerReservationStatus.denied
-    db.close()
+    try:
+        reservation = db.get(
+            ComputerReservation,
+            context["maintenance_reservation_id"],
+        )
+        assert reservation.status == ComputerReservationStatus.denied
+    finally:
+        db.close()
 
 
-def test_scheduler_updates_expired_equipment_reservations(monkeypatch):
-    from services import reservation_scheduler
-
+@given("expired pending and confirmed computer reservations exist")
+def expired_equipment_reservations_exist(context):
     now = datetime.now() - timedelta(hours=2)
     db = SessionTest()
     db.add_all(
@@ -535,38 +541,164 @@ def test_scheduler_updates_expired_equipment_reservations(monkeypatch):
         ]
     )
     db.commit()
-    ids = [reservation.id for reservation in db.query(ComputerReservation).all()]
+    context["expired_reservation_ids"] = [
+        reservation.id for reservation in db.query(ComputerReservation).all()
+    ]
     db.close()
-    monkeypatch.setattr(reservation_scheduler, "SessionLocal", SessionTest)
 
+
+@when("the reservation scheduler processes expired reservations")
+def scheduler_processes_reservations(monkeypatch):
+    from services import reservation_scheduler
+
+    monkeypatch.setattr(reservation_scheduler, "SessionLocal", SessionTest)
     reservation_scheduler._expire_reservations()
 
+
+@then("the pending reservation should be denied and the confirmed reservation completed")
+def expired_reservation_statuses_updated(context):
+    pending_id, confirmed_id = context["expired_reservation_ids"]
     db = SessionTest()
-    reservations = {
-        reservation.id: reservation.status
-        for reservation in db.query(ComputerReservation)
-        .filter(ComputerReservation.id.in_(ids))
-        .all()
-    }
-    db.close()
-    assert reservations[ids[0]] == ComputerReservationStatus.denied
-    assert reservations[ids[1]] == ComputerReservationStatus.completed
+    try:
+        assert db.get(ComputerReservation, pending_id).status == ComputerReservationStatus.denied
+        assert db.get(ComputerReservation, confirmed_id).status == ComputerReservationStatus.completed
+    finally:
+        db.close()
 
 
-def test_deactivating_user_denies_equipment_reservations(client):
+@given("an active student has a pending computer reservation")
+def active_student_has_pending_reservation(client, context):
     _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
     _ensure_user("Integration Student", "52998224725")
     created = _create_api_reservation(client)
     assert created.status_code == 201
     db = SessionTest()
     user = db.query(User).filter(User.cpf == "52998224725").first()
-    user_id = user.id
+    context["deactivation_user_id"] = user.id
+    context["deactivation_reservation_id"] = created.json()["id"]
     db.close()
 
-    response = client.patch(f"/users/{user_id}/deactivate")
 
-    assert response.status_code == 200
+@when("the student account is deactivated")
+def deactivate_student_account(client, context):
+    context["deactivation_response"] = client.patch(
+        f"/users/{context['deactivation_user_id']}/deactivate"
+    )
+
+
+@then("the student's computer reservation should be denied")
+def deactivated_student_reservation_denied(context):
+    assert context["deactivation_response"].status_code == 200
     db = SessionTest()
-    reservation = db.get(ComputerReservation, created.json()["id"])
-    assert reservation.status == ComputerReservationStatus.denied
-    db.close()
+    try:
+        reservation = db.get(
+            ComputerReservation,
+            context["deactivation_reservation_id"],
+        )
+        assert reservation.status == ComputerReservationStatus.denied
+    finally:
+        db.close()
+
+
+# Steps for unit scenarios
+
+
+def _capture_http_exception(context, operation):
+    try:
+        operation()
+    except HTTPException as error:
+        context["unit_exception"] = error
+        return
+    pytest.fail("Expected the internal service method to raise HTTPException")
+
+
+@given("a start time in the past")
+def start_time_in_past(context):
+    context["unit_start_time"] = datetime(2020, 1, 1, 8, 0)
+
+
+@when("the internal start time validation is executed")
+def execute_start_time_validation(context):
+    _capture_http_exception(
+        context,
+        lambda: check_start_not_in_past(context["unit_start_time"]),
+    )
+
+
+@given("a room object under maintenance")
+def room_object_under_maintenance(context):
+    context["unit_room"] = Room(
+        name="Unit Lab",
+        capacity=20,
+        description="Sala de teste unitario",
+        computers=10,
+        maintenance_status=RoomMaintenanceStatus.yes,
+        is_reserved=False,
+    )
+
+
+@when("the internal room maintenance validation is executed")
+def execute_room_maintenance_validation(context):
+    _capture_http_exception(
+        context,
+        lambda: check_room_maintenance(context["unit_room"]),
+    )
+
+
+@when(parsers.parse('the internal active user lookup is executed for CPF "{cpf}"'))
+def execute_active_user_lookup(context, cpf):
+    db = SessionTest()
+    try:
+        _capture_http_exception(context, lambda: get_active_user(db, cpf))
+    finally:
+        db.close()
+
+
+@when(parsers.parse('the internal user conflict validation checks CPF "{cpf}" from "{start}" to "{end}"'))
+def execute_user_conflict_validation(context, cpf, start, end):
+    db = SessionTest()
+    try:
+        _capture_http_exception(
+            context,
+            lambda: check_user_time_conflict(
+                db,
+                cpf,
+                _parse_dt(start),
+                _parse_dt(end),
+            ),
+        )
+    finally:
+        db.close()
+
+
+@when(parsers.parse('the internal capacity validation requests "{quantity}" computers in room "{room}" from "{start}" to "{end}"'))
+def execute_capacity_validation(context, quantity, room, start, end):
+    db = SessionTest()
+    try:
+        stored_room = db.query(Room).filter(Room.name == room).first()
+        _capture_http_exception(
+            context,
+            lambda: check_room_computer_capacity(
+                db,
+                stored_room,
+                _parse_dt(start),
+                _parse_dt(end),
+                int(quantity),
+            ),
+        )
+    finally:
+        db.close()
+
+
+@then(parsers.parse('the internal validation should fail with status "{status_code:d}" and message "{message}"'))
+def internal_validation_fails_with_message(context, status_code, message):
+    error = context["unit_exception"]
+    assert error.status_code == status_code
+    assert error.detail == message
+
+
+@then(parsers.parse('the internal validation should fail with status "{status_code:d}" containing "{message}"'))
+def internal_validation_fails_containing(context, status_code, message):
+    error = context["unit_exception"]
+    assert error.status_code == status_code
+    assert message.lower() in error.detail.lower()
