@@ -60,7 +60,7 @@ export default function Salas() {
   function showToast(msg) {
     clearTimeout(toastTimer.current);
     setToast({ msg, show: true });
-    toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, show: false })), 3500);
+    toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, show: false })), 7000);
   }
 
   const visible = rooms.filter((r) => {
