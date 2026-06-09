@@ -13,12 +13,13 @@ para este módulo, mantendo os endpoints finos (validação HTTP + resposta).
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from models.maintenance import MaintenanceRequest, MaintenanceStatus
+from models.equipment import ComputerReservation, ComputerReservationStatus
 from models.maintenance_check import (
     MAINTENANCE_CHECK_MESSAGES,
     MaintenanceCheckStatus,
@@ -58,7 +59,10 @@ def _detect_conflict(
     room: str,
     start_dt: datetime,
     end_dt: datetime,
-) -> Tuple[ReservationConflictType, List[Reservation]]:
+) -> Tuple[
+    ReservationConflictType,
+    List[Union[Reservation, ComputerReservation]],
+]:
     """
     Verifica reservas conflitantes no período da manutenção.
 
@@ -77,8 +81,21 @@ def _detect_conflict(
         )
         .all()
     )
-    if confirmed:
-        return ReservationConflictType.confirmed_conflict, confirmed
+    confirmed_equipment = (
+        db.query(ComputerReservation)
+        .filter(
+            ComputerReservation.room == room,
+            ComputerReservation.status == ComputerReservationStatus.confirmed,
+            ComputerReservation.start_time <= end_dt,
+            ComputerReservation.end_time >= start_dt,
+        )
+        .all()
+    )
+    if confirmed or confirmed_equipment:
+        return (
+            ReservationConflictType.confirmed_conflict,
+            [*confirmed, *confirmed_equipment],
+        )
 
     pending = (
         db.query(Reservation)
@@ -90,8 +107,21 @@ def _detect_conflict(
         )
         .all()
     )
-    if pending:
-        return ReservationConflictType.pending_conflict, pending
+    pending_equipment = (
+        db.query(ComputerReservation)
+        .filter(
+            ComputerReservation.room == room,
+            ComputerReservation.status == ComputerReservationStatus.pending,
+            ComputerReservation.start_time <= end_dt,
+            ComputerReservation.end_time >= start_dt,
+        )
+        .all()
+    )
+    if pending or pending_equipment:
+        return (
+            ReservationConflictType.pending_conflict,
+            [*pending, *pending_equipment],
+        )
 
     return ReservationConflictType.no_conflict, []
 
@@ -135,17 +165,31 @@ def confirm_maintenance(
 
     # Cenário 4 — avisa na primeira tentativa (force=False)
     if conflict_type == ReservationConflictType.pending_conflict and not data.force:
+        room_reservation_ids = [
+            reservation.id
+            for reservation in conflicting
+            if isinstance(reservation, Reservation)
+        ]
+        equipment_reservation_ids = [
+            reservation.id
+            for reservation in conflicting
+            if isinstance(reservation, ComputerReservation)
+        ]
         raise HTTPException(
             status_code=409,
             detail={
                 "message": MAINTENANCE_CHECK_MESSAGES[ReservationConflictType.pending_conflict],
-                "pending_reservation_ids": [r.id for r in conflicting],
+                "pending_reservation_ids": room_reservation_ids,
+                "pending_equipment_reservation_ids": equipment_reservation_ids,
             },
         )
 
     # Cenário 4 — nega automaticamente as pendentes quando force=True
     for reservation in conflicting:
-        reservation.status = ReservationStatus.denied
+        if isinstance(reservation, ComputerReservation):
+            reservation.status = ComputerReservationStatus.denied
+        else:
+            reservation.status = ReservationStatus.denied
 
     # Confirma a manutenção e registra o período
     request.status = MaintenanceCheckStatus.confirmed

@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.user import User
 from models.reservation import Reservation, ReservationStatus
+from models.equipment import ComputerReservation, ComputerReservationStatus
 from schemas.user import UserCreate, UserUpdate, UserLogin
 from passlib.context import CryptContext
 
@@ -103,6 +104,17 @@ def desativar_usuario_service(user_id: int, db: Session) -> User:
         Reservation.user_cpf == user.cpf,
         Reservation.status.in_([ReservationStatus.pending, ReservationStatus.confirmed])
     ).update({"status": ReservationStatus.denied}, synchronize_session=False)
+
+    db.query(ComputerReservation).filter(
+        ComputerReservation.user_cpf == user.cpf,
+        ComputerReservation.status.in_([
+            ComputerReservationStatus.pending,
+            ComputerReservationStatus.confirmed,
+        ]),
+    ).update(
+        {"status": ComputerReservationStatus.denied},
+        synchronize_session=False,
+    )
 
     user.status = False
     db.commit()
