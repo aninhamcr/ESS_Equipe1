@@ -273,7 +273,103 @@ function CancelConfirmModal({ reserva, onConfirm, onClose }) {
   );
 }
 
+// ── Modal de Detalhes ─────────────────────────────────────────────────────────
+
+function DetalhesModal({ reserva, onEdit, onCancel, onClose }) {
+  const isPending    = reserva.status === "pending";
+  const isCancellable = reserva.status === "pending" || reserva.status === "confirmed";
+
+  function DetailRow({ label, value }) {
+    if (!value) return null;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "10px 0", borderBottom: "1px solid #f0f0f0" }}>
+        <span style={{ fontSize: "0.72rem", fontWeight: "600", color: "#888", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
+        <span style={{ fontSize: "0.92rem", color: "#1a1a2e" }}>{value}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.overlay}>
+      <div style={{ ...s.modal, maxWidth: "480px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+          <div>
+            <h2 style={{ ...s.modalTitle, fontSize: "1.1rem", marginBottom: "6px" }}>
+              Sala {reserva.room}
+            </h2>
+            <StatusBadge status={reserva.status} />
+          </div>
+          <button style={s.closeBtn} onClick={onClose} type="button">✕</button>
+        </div>
+
+        {/* Detalhes */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 1rem" }}>
+            <DetailRow label="Data"   value={formatDate(reserva.start_time)} />
+            <DetailRow label="Início" value={formatTime(reserva.start_time)} />
+            <DetailRow label="Fim"    value={formatTime(reserva.end_time)}   />
+          </div>
+          {reserva.admin_message && (
+            <div style={{ padding: "10px 0", borderBottom: "1px solid #f0f0f0" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: "600", color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: "5px" }}>
+                Mensagem para o administrador
+              </span>
+              <p style={{ fontSize: "0.92rem", color: "#1a1a2e", margin: 0, lineHeight: "1.5", background: "#f8f8fb", borderRadius: "6px", padding: "8px 10px", borderLeft: "3px solid #d0d0e8" }}>
+                {reserva.admin_message}
+              </p>
+            </div>
+          )}
+          {reserva.admin_reply && (
+            <div style={{ padding: "10px 0", borderBottom: "1px solid #f0f0f0" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: "600", color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: "5px" }}>
+                Resposta do administrador
+              </span>
+              <p style={{ fontSize: "0.92rem", color: "#1a1a2e", margin: 0, lineHeight: "1.5", background: "#f8f8fb", borderRadius: "6px", padding: "8px 10px", borderLeft: "3px solid #4361ee" }}>
+                {reserva.admin_reply}
+              </p>
+            </div>
+          )}
+          <DetailRow label="ID da reserva" value={reserva.id} />
+        </div>
+
+        {/* Ações */}
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.25rem", flexWrap: "wrap" }}>
+          {isPending && (
+            <button
+              type="button"
+              style={s.btn}
+              onClick={() => { onClose(); onEdit(reserva); }}
+            >
+              Editar reserva
+            </button>
+          )}
+          {isCancellable && (
+            <button
+              type="button"
+              style={s.btnDanger}
+              onClick={() => { onClose(); onCancel(reserva); }}
+            >
+              Cancelar reserva
+            </button>
+          )}
+          <button type="button" style={s.btnSecondary} onClick={onClose}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── SortHeader ────────────────────────────────────────────────────────────────
+
+function SortIcon({ active, dir }) {
+  return (
+    <svg width="10" height="14" viewBox="0 0 10 14" style={{ flexShrink: 0, verticalAlign: "middle" }}>
+      <path d="M5 1 L9 6 L1 6 Z" fill={active && dir === "asc"  ? "#4361ee" : "#bbb"} />
+      <path d="M5 13 L9 8 L1 8 Z" fill={active && dir === "desc" ? "#4361ee" : "#bbb"} />
+    </svg>
+  );
+}
 
 function SortHeader({ label, field, sortConfig, onSort }) {
   const active = sortConfig.field === field;
@@ -284,12 +380,9 @@ function SortHeader({ label, field, sortConfig, onSort }) {
       style={{ ...s.th, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
       onClick={() => onSort(field)}
     >
-      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
         {label}
-        <span style={{ display: "inline-flex", flexDirection: "column", lineHeight: 1, opacity: active ? 1 : 0.3 }}>
-          <span style={{ fontSize: "0.55rem", color: active && dir === "asc"  ? "#4361ee" : "inherit", lineHeight: 1 }}>▲</span>
-          <span style={{ fontSize: "0.55rem", color: active && dir === "desc" ? "#4361ee" : "inherit", lineHeight: 1 }}>▼</span>
-        </span>
+        <SortIcon active={active} dir={dir} />
       </span>
     </th>
   );
@@ -297,17 +390,21 @@ function SortHeader({ label, field, sortConfig, onSort }) {
 
 // ── Linha da tabela ───────────────────────────────────────────────────────────
 
-function ReservaRow({ reserva, onEdit, onCancel, isOdd }) {
+function ReservaRow({ reserva, onEdit, onCancel, onDetalhes, isOdd }) {
   const isPending = reserva.status === "pending";
 
   return (
-    <tr style={{ ...s.tr, background: isOdd ? "#f9f9fc" : "#fff" }}>
+    <tr
+      className="reserva-row"
+      style={{ ...s.tr, background: isOdd ? "#f9f9fc" : "#fff", cursor: "pointer" }}
+      onClick={() => onDetalhes(reserva)}
+    >
       <td style={s.td}><strong style={{ fontWeight: "600" }}>{reserva.room}</strong></td>
       <td style={s.td}>{formatDate(reserva.start_time)}</td>
       <td style={s.td}>{formatTime(reserva.start_time)}</td>
       <td style={s.td}>{formatTime(reserva.end_time)}</td>
       <td style={s.td}><StatusBadge status={reserva.status} /></td>
-      <td style={{ ...s.td, display: "flex", gap: "0.4rem" }}>
+      <td style={{ ...s.td }} onClick={(e) => e.stopPropagation()}><div style={{ display: "flex", gap: "0.4rem" }}>
         {isPending && (
           <>
             <button style={s.btnSm} type="button" onClick={() => onEdit(reserva)}>
@@ -318,7 +415,7 @@ function ReservaRow({ reserva, onEdit, onCancel, isOdd }) {
             </button>
           </>
         )}
-      </td>
+      </div></td>
     </tr>
   );
 }
@@ -380,6 +477,7 @@ export default function ReservasSala() {
   const [sortConfig, setSortConfig]         = useState({ field: "start_time", dir: "desc" });
   const [editando, setEditando]             = useState(null);
   const [cancelando, setCancelando]         = useState(null);
+  const [detalhes, setDetalhes]             = useState(null);
   const [toast, setToast]                   = useState({ type: "", text: "" });
 
   function authHeaders() {
@@ -462,14 +560,6 @@ export default function ReservasSala() {
     }
   }
 
-  const sortableColumns = [
-    { field: "room",       label: "Sala"   },
-    { field: "start_time", label: "Data"   },
-    { field: "start_time", label: "Início" }, // mesmo campo, visual só
-    { field: "end_time",   label: "Fim"    },
-    { field: "status",     label: "Status" },
-  ];
-
   return (
     <Navbar>
       <style>{`
@@ -481,6 +571,15 @@ export default function ReservasSala() {
       `}</style>
 
       <Toast toast={toast} />
+
+      {detalhes && (
+        <DetalhesModal
+          reserva={detalhes}
+          onEdit={setEditando}
+          onCancel={setCancelando}
+          onClose={() => setDetalhes(null)}
+        />
+      )}
 
       {editando && (
         <EditarModal
@@ -527,8 +626,8 @@ export default function ReservasSala() {
                   <tr>
                     <SortHeader label="Sala"   field="room"       sortConfig={sortConfig} onSort={handleSort} />
                     <SortHeader label="Data"   field="start_time" sortConfig={sortConfig} onSort={handleSort} />
-                    <SortHeader label="Início" field="start_time" sortConfig={sortConfig} onSort={handleSort} />
-                    <SortHeader label="Fim"    field="end_time"   sortConfig={sortConfig} onSort={handleSort} />
+                    <th style={s.th}>Início</th>
+                    <th style={s.th}>Fim</th>
                     <SortHeader label="Status" field="status"     sortConfig={sortConfig} onSort={handleSort} />
                     <th style={s.th}>Ações</th>
                   </tr>
@@ -540,6 +639,7 @@ export default function ReservasSala() {
                       reserva={r}
                       onEdit={setEditando}
                       onCancel={setCancelando}
+                      onDetalhes={setDetalhes}
                       isOdd={i % 2 === 1}
                     />
                   ))}
