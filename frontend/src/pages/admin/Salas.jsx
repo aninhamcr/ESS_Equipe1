@@ -124,7 +124,10 @@ export default function Salas() {
 
         <div className="salas-top-row">
           <div>
-            <div className="salas-page-title">Salas cadastradas</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <h1 className="salas-page-title">Salas cadastradas</h1>
+              <span style={{ display: "inline-block", width: 28, height: 3, borderRadius: 2, background: "#f5a623" }} />
+            </div>
             <div className="salas-page-sub">Gerencie as salas disponíveis no sistema</div>
           </div>
           <button
