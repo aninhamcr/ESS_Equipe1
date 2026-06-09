@@ -1,7 +1,7 @@
 Feature: Room CRUD
 
 Scenario: Criar Sala
-Given eu estou logado como administrador com o usuário "Maria" com CPF "111111"
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
 And eu estou na tela de salas cadastradas
 And a sala de nome "D005" não aparece na lista de salas cadastradas
 When eu seleciono a opção "cadastrar sala"
@@ -11,7 +11,7 @@ And eu ainda estou na tela de salas cadastradas
 And eu vejo a sala "D005" na lista de salas cadastradas
 
 Scenario: Remover Sala
-Given eu estou logado como administrador com o usuário "Maria" com CPF "111111"
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
 And eu estou na tela de salas cadastradas
 And eu vejo a sala "D005" na lista de salas cadastradas
 When eu seleciono a opção "remover sala" da sala "D005"
@@ -21,7 +21,7 @@ And eu ainda estou na tela de salas cadastradas
 And eu não vejo a sala "D005" na lista de salas cadastradas
 
 Scenario: Editar Sala
-Given eu estou logado como administrador com o usuário "Maria" com CPF "111111"
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
 And eu estou na tela de salas cadastradas
 And eu vejo a sala "D005" na lista de salas cadastradas com capacidade "80"
 When eu seleciono a opção "editar sala" da sala "D005"
@@ -32,7 +32,7 @@ And eu ainda estou na tela de salas cadastradas
 And a sala "D005" aparece com capacidade "60" na lista de salas cadastradas
 
 Scenario: Tentar criar sala duplicada
-Given eu estou logado como administrador com o usuário "Maria" com CPF "111111"
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
 And eu estou na tela de salas cadastradas
 And eu vejo a sala "D005" na lista de salas cadastradas
 When eu seleciono a opção "cadastrar sala"
@@ -42,7 +42,7 @@ And eu continuo na tela com o formulário de cadastro de sala
 And a tela do formulário de cadastro está com todos os campos vazios
 
 Scenario: Remover Sala Reservada
-Given eu estou logado como administrador com o usuário "Maria" com CPF "111111"
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
 And eu estou na tela de salas cadastradas
 And eu vejo a sala "D005" na lista de salas cadastradas
 And eu vejo que a sala "D005" está reservada
@@ -53,7 +53,7 @@ And eu ainda estou na tela de salas cadastradas
 And eu continuo vendo a sala "D005" na lista de salas cadastradas
 
 Scenario: Tentar Editar Sala Reservada
-Given eu estou logado como administrador com o usuário "Maria" com CPF "111111"
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
 And eu estou na tela de salas cadastradas
 And eu vejo a sala "D005" na lista de salas cadastradas com capacidade "80" e com status "reservada"
 When eu seleciono a opção "editar sala" da sala "D005"
@@ -62,3 +62,21 @@ And salvo as alterações
 Then eu recebo uma mensagem de erro informando que não é possível editar uma sala reservada
 And eu ainda estou na tela de salas cadastradas
 And a sala "D005" ainda aparece com capacidade "80" na lista de salas cadastradas e com status "reservada"
+
+Scenario: Listar salas reservadas
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
+And eu estou na tela de salas cadastradas
+When eu filtro por salas "reservadas"
+Then eu vejo apenas as salas com o status "Reservada" na lista de salas cadastradas
+
+Scenario: Listar salas em manutenção
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
+And eu estou na tela de salas cadastradas
+When eu filtro por salas "Em manutenção"
+Then eu vejo apenas as salas com o status "Em manutenção" na lista de salas cadastradas
+
+Scenario: Listar salas disponíveis 
+Given eu estou logado como administrador com o usuário "Maria" com CPF "35977425058"
+And eu estou na tela de salas cadastradas
+When eu filtro por salas "Disponíveis"
+Then eu vejo apenas as salas com o status "Disponível" na lista de salas cadastradas
