@@ -1,9 +1,14 @@
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = process.env.API_URL || "http://localhost:8000";
 
 async function request(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...options.headers };
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers, credencials: "include" });
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+    cache: "no-store",
+  });
 
   if (res.status === 204) return null;
 

@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "dev": "parcel src/index.html --port 3000",
-    "build": "parcel build src/index.html"
+    "build": "parcel build src/index.html",
+    "test:e2e": "env -u ELECTRON_RUN_AS_NODE -u ELECTRON_NO_ATTACH_CONSOLE cypress run --spec tests/features/equipment_reservation.feature",
+    "test:e2e:open": "env -u ELECTRON_RUN_AS_NODE -u ELECTRON_NO_ATTACH_CONSOLE cypress open"
   },
   "cypress-cucumber-preprocessor": {
     "stepDefinitions": "tests/**/*.js"
@@ -15,9 +17,9 @@
     "react-router-dom": "^6.30.4"
   },
   "devDependencies": {
-    "@badeball/cypress-cucumber-preprocessor": "^24.0.1",
+    "@badeball/cypress-cucumber-preprocessor": "^20.1.2",
     "@bahmutov/cypress-esbuild-preprocessor": "^2.2.8",
-    "cypress": "^15.16.0",
+    "cypress": "^13.17.0",
     "parcel": "^2.12.0"
   },
   "browserslist": "> 0.5%, last 2 versions, not dead"

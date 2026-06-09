@@ -128,6 +128,116 @@ function ReservaRow({ reserva, onAction }) {
   );
 }
 
+function EquipmentReservationsSection({ onToast }) {
+  const [reservas, setReservas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchReservations = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setReservas(await api.get("/api/admin/equipment-reservations"));
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReservations();
+  }, [fetchReservations]);
+
+  async function decide(reservation, action) {
+    try {
+      const result = await api.patch(
+        `/api/admin/equipment-reservations/${reservation.id}/${action}`,
+        {},
+      );
+      onToast("success", result.message);
+      fetchReservations();
+    } catch (requestError) {
+      onToast("error", requestError.message);
+    }
+  }
+
+  return (
+    <div style={s.card} data-cy="admin-equipment-reservations">
+      <div style={{ marginBottom: "1rem" }}>
+        <h2 style={s.cardTitle}>Reservas de computadores</h2>
+        <p style={{ ...s.muted, marginTop: "0.25rem" }}>
+          Confirme ou negue solicitações pendentes de computadores de laboratório.
+        </p>
+      </div>
+
+      {loading && <p style={s.muted}>Carregando reservas de computadores...</p>}
+      {error && <p style={s.error}>{error}</p>}
+      {!loading && !error && reservas.length === 0 && (
+        <p style={s.muted}>Nenhuma reserva de computadores no sistema.</p>
+      )}
+
+      {!loading && !error && reservas.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                {["Solicitante", "Sala", "Computadores", "Data", "Horário", "Status", "Ações"].map((heading) => (
+                  <th key={heading} style={s.th}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {reservas.map((reserva) => {
+                const info = STATUS[reserva.status] ?? {
+                  label: reserva.status,
+                  badge: {},
+                };
+                return (
+                  <tr key={reserva.id} data-cy="admin-equipment-reservation-row">
+                    <td style={s.td}>{reserva.user_name}</td>
+                    <td style={s.td}>{reserva.room}</td>
+                    <td style={s.td}>{reserva.computer_quantity}</td>
+                    <td style={s.td}>{formatDate(reserva.start_time)}</td>
+                    <td style={s.td}>
+                      {formatTime(reserva.start_time)} – {formatTime(reserva.end_time)}
+                    </td>
+                    <td style={s.td}><span style={info.badge}>{info.label}</span></td>
+                    <td style={s.td}>
+                      {reserva.status === "pending" ? (
+                        <div style={s.actionsCell}>
+                          <button
+                            data-cy="confirm-equipment-reservation"
+                            style={s.btnSm}
+                            type="button"
+                            onClick={() => decide(reserva, "confirm")}
+                          >
+                            Confirmar
+                          </button>
+                          <button
+                            data-cy="deny-equipment-reservation"
+                            style={{ ...s.btnSm, ...s.btnSmDanger }}
+                            type="button"
+                            onClick={() => decide(reserva, "deny")}
+                          >
+                            Negar
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={s.muted}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Página principal ────────────────────────────────────────────
 export default function Reservas() {
   const [reservas, setReservas]         = useState([]);
@@ -286,6 +396,8 @@ export default function Reservas() {
           )
         )}
       </div>
+
+      <EquipmentReservationsSection onToast={showToast} />
     </Navbar>
   );
 }
