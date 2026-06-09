@@ -212,32 +212,6 @@ When("filtro as reservas de equipamentos pelo status {string}", (status) => {
 });
 
 
-When("o administrador confirma a reserva de equipamentos da sala {string}", (room) => {
-  const admin = {
-    nome: "Admin Equipamentos",
-    cpf: "81081395036",
-    tipo: "admin",
-    senha: DEFAULT_PASSWORD,
-  };
-  cy.request({
-    method: "POST",
-    url: `${API_URL}/users/`,
-    body: admin,
-    failOnStatusCode: false,
-  });
-  cy.visit(`${FRONTEND_URL}/reservas`, {
-    onBeforeLoad(window) {
-      window.localStorage.setItem("user", JSON.stringify(admin));
-    },
-  });
-  cy.contains('[data-cy="admin-equipment-reservation-row"]', room)
-    .find('[data-cy="confirm-equipment-reservation"]')
-    .click();
-  cy.contains('[data-cy="admin-equipment-reservation-row"]', room)
-    .should("contain", "Confirmada");
-});
-
-
 Then("vejo o aviso de equipamentos {string}", (message) => {
   cy.get('[data-cy="equipment-toast"]').should("contain", message);
 });

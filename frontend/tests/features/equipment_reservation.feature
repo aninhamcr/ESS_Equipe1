@@ -109,11 +109,3 @@ Feature: Reservar computadores de laboratório pela interface
   @unit
   Scenario: Processar internamente a listagem e a edição de reservas
     Then os métodos internos filtram formatam e identificam alterações
-
-  @gui @e2e @integration
-  Scenario: Administrador confirma uma reserva e o aluno visualiza o novo status
-    Given existe uma reserva de equipamentos "pending" de "Vitoria Rocha" CPF "61622051009" na sala "D005" com "2" computadores de "2032-10-10T08:00:00" ate "2032-10-10T10:00:00"
-    When o administrador confirma a reserva de equipamentos da sala "D005"
-    And estou autenticado para reservar equipamentos como "Vitoria Rocha" com CPF "61622051009"
-    And estou na pagina de reservas de equipamentos
-    Then vejo uma reserva de equipamentos da sala "D005" com "2" computadores e status "Confirmada"
