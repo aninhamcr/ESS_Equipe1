@@ -28,7 +28,7 @@ Feature: Gerenciamento de usuarios
     Then eu sou redirecionado para a página "Login"
 
   Scenario: Tentativa de cadastro com CPF ja existente
-    Given existe um usuario cadastrado com CPF "61622051009"
+    Given existe um usuario do tipo "discente" cadastrado com CPF "61622051009"
     And eu estou na página "Cadastro"
     When eu preencho o campo "Nome" com "Outro Usuario"
     And eu preencho o campo "CPF" com "61622051009"
@@ -65,16 +65,16 @@ Feature: Gerenciamento de usuarios
   # ── LOGIN ─────────────────────────────────────────────────────────────────
 
   Scenario: Login realizado com sucesso
-    Given existe um usuario ativo com CPF "61622051009" e senha "senha123"
+    Given existe um usuario ativo do tipo "discente" com CPF "61622051009" e senha "senha123"
     And eu estou na página "Login"
     When eu preencho o campo "CPF" com "61622051009"
     And eu preencho o campo "Senha" com "senha123"
     And eu clico em "Entrar"
     Then eu sou redirecionado para a página "Perfil"
-    And eu vejo o nome "Luan Santana" na navbar
+    And eu vejo o nome "Luan Santana" na página "Perfil"
 
   Scenario: Tentativa de login com senha incorreta
-    Given existe um usuario ativo com CPF "61622051009" e senha "senha123"
+    Given existe um usuario ativo do tipo "discente" com CPF "61622051009" e senha "senha123"
     And eu estou na página "Login"
     When eu preencho o campo "CPF" com "61622051009"
     And eu preencho o campo "Senha" com "senhaerrada"
@@ -91,7 +91,7 @@ Feature: Gerenciamento de usuarios
     And eu permaneco na página "Login"
 
   Scenario: Tentativa de login com conta desativada
-    Given existe um usuario desativado com CPF "61622051009" e senha "senha123"
+    Given existe um usuario desativado do tipo "docente" com CPF "61622051009" e senha "senha123"
     And eu estou na página "Login"
     When eu preencho o campo "CPF" com "61622051009"
     And eu preencho o campo "Senha" com "senha123"
@@ -102,7 +102,7 @@ Feature: Gerenciamento de usuarios
   # ── EDICAO ────────────────────────────────────────────────────────────────
 
   Scenario: Alteracao de nome realizada com sucesso
-    Given eu estou autenticado como "Luan Santana" com CPF "61622051009" e senha "senha123"
+    Given eu estou autenticado como usuário do tipo "discente" chamado "Luan Santana" com CPF "61622051009" e senha "senha123"
     And eu estou na página "Perfil"
     When eu clico em "Editar"
     And eu limpo e preencho o campo "Nome" com "Luan Santana Santos"
@@ -111,7 +111,7 @@ Feature: Gerenciamento de usuarios
     And eu vejo o nome "Luan Santana Santos" na página "Perfil"
 
   Scenario: Alteracao de senha realizada com sucesso
-    Given eu estou autenticado como "Luan Santana" com CPF "61622051009" e senha "senha123"
+    Given eu estou autenticado como usuário do tipo "discente" chamado "Luan Santana" com CPF "61622051009" e senha "senha123"
     And eu estou na página "Perfil"
     When eu clico em "Editar"
     And eu preencho o campo "Nova senha" com "novasenha456"
@@ -120,7 +120,7 @@ Feature: Gerenciamento de usuarios
     And eu consigo fazer login com CPF "61622051009" e nova senha "novasenha456"
 
   Scenario: Tentativa de atualizacao com senha nova muito curta
-    Given eu estou autenticado como "Luan Santana" com CPF "61622051009" e senha "senha123"
+    Given eu estou autenticado como usuário do tipo "discente" chamado "Luan Santana" com CPF "61622051009" e senha "senha123"
     And eu estou na página "Perfil"
     When eu clico em "Editar"
     And eu preencho o campo "Nova senha" com "abc"
@@ -131,7 +131,7 @@ Feature: Gerenciamento de usuarios
   # ── DESATIVACAO ───────────────────────────────────────────────────────────
 
   Scenario: Desativacao de conta realizada com sucesso
-    Given eu estou autenticado como "Luan Santana" com CPF "61622051009" e senha "senha123"
+    Given eu estou autenticado como usuário do tipo "discente" chamado "Luan Santana" com CPF "61622051009" e senha "senha123"
     And eu estou na página "Perfil"
     When eu clico em "Desativar minha conta"
     And eu clico em "Sim, desativar"
@@ -139,7 +139,7 @@ Feature: Gerenciamento de usuarios
     And eu nao consigo fazer login com CPF "61622051009" e senha "senha123"
 
   Scenario: Cancelamento da desativacao de conta
-    Given eu estou autenticado como "Wesley Safadao" com CPF "81081395036" e senha "senha123"
+    Given eu estou autenticado como usuário do tipo "docente" chamado "Wesley Safadao" com CPF "81081395036" e senha "senha123"
     And eu estou na página "Perfil"
     When eu clico em "Desativar minha conta"
     And eu clico em "Cancelar"
