@@ -61,6 +61,7 @@ app.include_router(equipment_router)
 app.include_router(list_reservation_router)
 app.include_router(admin_reservation_router)
 app.include_router(admin_equipment_reservation_router)
+
 app.include_router(admin_tools_router)
 app.include_router(room_router)  
 

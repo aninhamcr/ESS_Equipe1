@@ -13,8 +13,13 @@ htmlcov/
 venv/
 env/
 
+node_modules/
+
 .idea/
 .vscode/
 
 *.log
 .DS_Store
+
+node_modules/
+package-lock.json

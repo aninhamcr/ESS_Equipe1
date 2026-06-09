@@ -3,6 +3,12 @@ import { Before, Given, When, Then } from "@badeball/cypress-cucumber-preprocess
 const BASE_URL = "http://localhost:3000";
 const API_URL  = "http://localhost:8000";
 
+const MatriculaValida = "20230001";
+const SIAPEValido = "20230001";
+const CursoValido = "Computacao";
+const NomeGenerico = "Luan Santana";
+const SenhaGenerica = "senha123";
+
 // ── Before: limpar usuários de teste ──────────────────────────────────────────
 Before({ tags: "@usuarios" }, () => {
   cy.request("DELETE", "http://localhost:8000/test/users");
@@ -20,38 +26,68 @@ Given("eu estou na página {string}", (página) => {
   cy.visit(`${BASE_URL}${rotas[página]}`);
 });
 
-Given("existe um usuario cadastrado com CPF {string}", (cpf) => {
+Given("existe um usuario do tipo {string} cadastrado com CPF {string}", (tipo, cpf) => {
+  const body = {
+    nome: NomeGenerico,
+    cpf,
+    tipo,
+    senha: SenhaGenerica,
+  };
+
+    if (tipo === "discente") {
+      body.matricula = MatriculaValida;
+      body.curso = CursoValido;
+    } else if (tipo === "docente") {
+      body.siape = SIAPEValido;
+    }
   cy.request({
     method: "POST",
     url: `${API_URL}/users/`,
-    body: {
-      nome: "Luan Santana", cpf, tipo: "discente",
-      matricula: "20230001", curso: "Computacao", senha: "senha123",
-    },
+    body,
     failOnStatusCode: false,
   });
 });
 
-Given("existe um usuario ativo com CPF {string} e senha {string}", (cpf, senha) => {
+Given("existe um usuario ativo do tipo {string} com CPF {string} e senha {string}", (tipo, cpf, senha) => {
+  const body = {
+    nome: NomeGenerico,
+    cpf,
+    tipo: tipo,
+    senha,
+  };
+
+    if (tipo === "discente") {
+      body.matricula = MatriculaValida;
+      body.curso = CursoValido;
+    } else if (tipo === "docente") {
+      body.siape = SIAPEValido;
+    }
   cy.request({
     method: "POST",
     url: `${API_URL}/users/`,
-    body: {
-      nome: "Luan Santana", cpf, tipo: "discente",
-      matricula: "20230001", curso: "Computacao", senha,
-    },
+    body,
     failOnStatusCode: false,
   });
 });
 
-Given("existe um usuario desativado com CPF {string} e senha {string}", (cpf, senha) => {
+Given("existe um usuario desativado do tipo {string} com CPF {string} e senha {string}", (tipo, cpf, senha) => {
+  const body = {
+    nome: NomeGenerico,
+    cpf,
+    tipo: tipo,
+    senha,
+  };
+
+    if (tipo === "discente") {
+      body.matricula = MatriculaValida;
+      body.curso = CursoValido;
+    } else if (tipo === "docente") {
+      body.siape = SIAPEValido;
+    }
   cy.request({
     method: "POST",
     url: `${API_URL}/users/`,
-    body: {
-      nome: "Luan Santana", cpf, tipo: "discente",
-      matricula: "20230001", curso: "Computacao", senha,
-    },
+    body,
     failOnStatusCode: false,
   }).then(() => {
     cy.request({
@@ -71,14 +107,25 @@ Given("existe um usuario desativado com CPF {string} e senha {string}", (cpf, se
   });
 });
 
-Given("eu estou autenticado como {string} com CPF {string} e senha {string}", (nome, cpf, senha) => {
+Given("eu estou autenticado como usuário do tipo {string} chamado {string} com CPF {string} e senha {string}", (tipo, nome, cpf, senha) => {
+  const body = {
+    nome, 
+    cpf, 
+    tipo, 
+    senha,
+  };
+
+    if (tipo === "discente") {
+      body.matricula = MatriculaValida;
+      body.curso = CursoValido;
+    } else if (tipo === "docente") {
+      body.siape = SIAPEValido;
+    }
+
   cy.request({
     method: "POST",
     url: `${API_URL}/users/`,
-    body: {
-      nome, cpf, tipo: "discente",
-      matricula: "20230001", curso: "Computacao", senha,
-    },
+    body,
     failOnStatusCode: false,
   }).then(() => {
     cy.request({
@@ -91,10 +138,6 @@ Given("eu estou autenticado como {string} com CPF {string} e senha {string}", (n
   });
 });
 
-Given("eu estou na página de perfil", () => {
-  cy.visit(`${BASE_URL}/perfil`);
-  cy.contains("Meu Perfil", { timeout: 8000 }).should("exist");
-});
 
 // ── Whens — Campos ────────────────────────────────────────────────────────────
 
