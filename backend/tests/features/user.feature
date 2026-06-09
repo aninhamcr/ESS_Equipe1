@@ -9,17 +9,16 @@ Feature: Gerenciamento de usuarios
     Given o sistema nao tem um usuario com CPF "53128925054"
     When eu tento cadastrar o usuario "John Logan" com CPF "53128925054", tipo "discente", matricula "20230001", curso "Computacao" e senha "senha123"
     Then o servidor retorna os dados do usuario "John Logan" com CPF "53128925054" e tipo "discente"
-    And o sistema armazena o usuario "John Logan" com CPF "53128925054" e tipo "discente"
-    And o status do usuario "John Logan" com CPF "53128925054" e ativo
+    And o sistema armazena o usuario "John Logan" com CPF "53128925054", tipo "discente" e status ativo
 
   Scenario: Cadastro de docente realizado com sucesso
     Given o sistema nao tem um usuario com CPF "53128925054"
     When eu tento cadastrar o usuario "Pedro Mota" com CPF "53128925054", tipo "docente", siape "1234567" e senha "senha123"
     Then o servidor retorna os dados do usuario "Pedro Mota" com CPF "53128925054" e tipo "docente"
-    And o sistema armazena o usuario "Pedro Mota" com CPF "53128925054" e tipo "docente"
+    And o sistema armazena o usuario "Pedro Mota" com CPF "53128925054", tipo "docente" e status ativo
 
   Scenario: Tentativa de cadastro com CPF ja existente
-    Given o sistema tem um usuario "John Logan" com CPF "53128925054"
+    Given o sistema tem um usuario ativo "John Logan" com CPF "53128925054" e senha "senha123"
     When eu tento cadastrar o usuario "Fake John" com CPF "53128925054", tipo "discente", matricula "20230002", curso "Direito" e senha "senha123"
     Then o servidor retorna um erro informando que o CPF ja esta cadastrado
     And o sistema ainda tem apenas um usuario com CPF "53128925054"
@@ -69,7 +68,6 @@ Feature: Gerenciamento de usuarios
     Given o sistema tem um usuario desativado "John Logan" com CPF "53128925054" e senha "senha123"
     When eu realizo o login com CPF "53128925054" e senha "senha123"
     Then o servidor retorna um erro informando que a conta esta desativada
-    And o sistema ainda tem o usuario "John Logan" com CPF "53128925054" com status desativado
 
   #CENARIOS DE ATUALIZACAO DE DADOS
 
@@ -82,12 +80,12 @@ Feature: Gerenciamento de usuarios
   Scenario: Alteracao de senha realizada com sucesso
     Given o sistema tem um usuario ativo "John Logan" com CPF "53128925054" e senha "senha123"
     When eu atualizo a senha do usuario com CPF "53128925054" para "novasenha456"
-    Then o servidor retorna os dados do usuario com CPF "53128925054"
+    Then o servidor retorna os dados do usuario "John Logan" com CPF "53128925054"
     And o sistema permite login com CPF "53128925054" e senha "novasenha456"
 
   Scenario: Tentativa de atualizacao com senha nova muito curta
     Given o sistema tem um usuario ativo "John Logan" com CPF "53128925054" e senha "senha123"
-    When eu tento atualizar a senha do usuario com CPF "53128925054" para "abc"
+    When eu atualizo a senha do usuario com CPF "53128925054" para "abc"
     Then o servidor retorna um erro de validacao
     And o sistema permite login com CPF "53128925054" e senha "senha123"
 

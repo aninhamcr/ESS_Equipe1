@@ -23,6 +23,13 @@ Feature: Efetuar reserva e manutencao de reservas efetuadas usuario
     When Neymar tenta reservar a sala "E101" das "2030-06-09T08:00:00" as "2030-06-09T10:00:00"
     Then o servidor retorna um erro informando que o usuario ja possui uma reserva neste horario
 
+  Scenario: Duas reservas pendentes da mesma sala e horario de usuarios diferentes coexistem
+    Given o sistema tem um usuario com nome "Neymar" CPF "52998224997" senha "12345678" e tipo "discente"
+    And o sistema tem um usuario com nome "Messi" CPF "68733775540" senha "87654321" e tipo "discente"
+    And o sistema possui uma reserva pendente da sala "D005" das "2030-06-26T08:00:00" as "2030-06-26T10:00:00" para Messi
+    When Neymar tenta reservar a sala "D005" das "2030-06-26T08:00:00" as "2030-06-26T10:00:00"
+    Then o sistema armazena a reserva com status "pending"
+
   Scenario: Tentar reservar sem informar o usuario
     Given a sala "D005" existe no sistema
     When um usuario nao autenticado tenta reservar a sala "D005" das "2030-06-16T08:00:00" as "2030-06-16T10:00:00"

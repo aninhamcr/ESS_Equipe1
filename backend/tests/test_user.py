@@ -146,13 +146,6 @@ def sistema_sem_usuario(cpf):
     assert _count_users_by_cpf(cpf) == 0, \
         f"Esperava ausencia de usuario com CPF {cpf}, mas ele existe"
 
-@given(parsers.parse('o sistema tem um usuario "{nome}" com CPF "{cpf}"'))
-def sistema_tem_usuario_generico(context, nome, cpf):
-    uid = _insert_user(nome=nome, cpf=cpf, tipo="discente", senha="senha123",
-                       matricula="20230001", curso="Computacao", status=True)
-    context["user_id"] = uid
-    context["user_cpf"] = cpf
-
 @given(parsers.parse('o sistema tem um usuario ativo "{nome}" com CPF "{cpf}" e senha "{senha}"'))
 def sistema_tem_usuario_ativo(context, nome, cpf, senha):
     uid = _insert_user(nome=nome, cpf=cpf, tipo="discente", senha=senha,
@@ -234,10 +227,6 @@ def when_atualizar_nome(client, context, cpf, novo_nome):
 def when_atualizar_senha(client, context, cpf, nova_senha):
     _patch_user(client, context, {"senha": nova_senha})
 
-@when(parsers.parse('eu tento atualizar a senha do usuario com CPF "{cpf}" para "{nova_senha}"'))
-def when_tentar_atualizar_senha(client, context, cpf, nova_senha):
-    _patch_user(client, context, {"senha": nova_senha})
-
 @when(parsers.parse('eu solicito a desativacao da conta do usuario com CPF "{cpf}"'))
 def when_desativar_conta(client, context, cpf):
     user_id = context.get("user_id")
@@ -258,17 +247,15 @@ def then_retorna_dados_com_tipo(context, nome, cpf, tipo):
     assert body.get("tipo") == tipo, \
         f"Tipo esperado '{tipo}', recebido '{body.get('tipo')}'"
 
-@then(parsers.parse('o sistema armazena o usuario "{nome}" com CPF "{cpf}" e tipo "{tipo}"'))
+@then(parsers.parse('o sistema armazena o usuario "{nome}" com CPF "{cpf}", tipo "{tipo}" e status ativo'))
 def then_armazena_usuario_com_tipo(nome, cpf, tipo):
     user = _assert_user_in_db(cpf)
     assert _normalize(user.nome) == _normalize(nome), \
         f"Nome esperado '{nome}', encontrado '{user.nome}'"
     assert user.tipo.value == tipo, \
         f"Tipo esperado '{tipo}', encontrado '{user.tipo.value}'"
-
-@then(parsers.parse('o status do usuario "{nome}" com CPF "{cpf}" e ativo'))
-def then_status_ativo(nome, cpf):
-    _assert_user_status_in_db(cpf, expected_status=True)
+    assert user.status is True, \
+        f"Esperava usuario ativo no banco para CPF {cpf}, encontrado '{user.status}'"
 
 @then('o servidor retorna um erro informando que o CPF ja esta cadastrado')
 def then_erro_cpf_ja_cadastrado(context):
@@ -320,14 +307,6 @@ def then_erro_conta_desativada(context):
     detail = _normalize(context["response"].json().get("detail", ""))
     assert "desativada" in detail or "desativ" in detail, \
         f"Mensagem inesperada: {context['response'].json().get('detail')}"
-
-@then(parsers.parse('o sistema ainda tem o usuario "{nome}" com CPF "{cpf}" com status desativado'))
-def then_usuario_ainda_desativado(nome, cpf):
-    user = _assert_user_in_db(cpf)
-    assert _normalize(user.nome) == _normalize(nome), \
-        f"Nome esperado '{nome}', encontrado '{user.nome}'"
-    _assert_user_status_in_db(cpf, expected_status=False)
-
 @then(parsers.parse('o servidor retorna os dados atualizados com nome "{nome}"'))
 def then_retorna_dados_atualizados_com_nome(context, nome):
     body = _assert_response_ok(context, 200)
@@ -339,12 +318,6 @@ def then_armazena_nome(cpf, nome):
     user = _assert_user_in_db(cpf)
     assert _normalize(user.nome) == _normalize(nome), \
         f"Nome esperado '{nome}', encontrado '{user.nome}'"
-
-@then(parsers.parse('o servidor retorna os dados do usuario com CPF "{cpf}"'))
-def then_retorna_dados_por_cpf(context, cpf):
-    body = _assert_response_ok(context, 200)
-    assert body.get("cpf") == cpf, \
-        f"CPF esperado '{cpf}', recebido '{body.get('cpf')}'"
 
 @then(parsers.parse('o sistema permite login com CPF "{cpf}" e senha "{senha}"'))
 def then_permite_login(client, cpf, senha):

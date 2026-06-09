@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from database import engine, Base
 
@@ -20,8 +22,14 @@ from routes.maintenance_check import router as maintenance_check_router
 from routes.equipment import router as equipment_router
 from routes.list_reservation import router as list_reservation_router
 from routes.admin_reservation import router as admin_reservation_router
+<<<<<<< backend-integration
 from routes.admin_equipment_reservation import router as admin_equipment_reservation_router
+=======
+from routes.admin_tools import router as admin_tools_router
+>>>>>>> frontend-integration
 from services.reservation_scheduler import start_scheduler
+
+load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 
@@ -55,8 +63,21 @@ app.include_router(equipment_router)
 
 app.include_router(list_reservation_router)
 app.include_router(admin_reservation_router)
+<<<<<<< backend-integration
 app.include_router(admin_equipment_reservation_router)
+=======
+
+app.include_router(admin_tools_router)
+>>>>>>> frontend-integration
 app.include_router(room_router)  
+
+
+# Rotas de teste (APENAS em ambiente de testes — ENV=test)
+if os.getenv("ENV") == "test":
+    from routes.tests_user import router as tests_user_router
+    app.include_router(tests_user_router)
+    print("[ENV=test] Rotas de teste registradas")
+
 
 @app.get("/", tags=["Root"])
 def root():

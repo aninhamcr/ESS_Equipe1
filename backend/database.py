@@ -3,7 +3,9 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+env = os.getenv("ENV", "development")
+dotenv_file = ".env.test" if env == "test" else ".env"
+load_dotenv(dotenv_file)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
