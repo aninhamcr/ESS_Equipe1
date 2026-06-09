@@ -336,8 +336,8 @@ def _create_api_reservation(
     room="Integration Lab",
     cpf="52998224725",
     name="Integration Student",
-    start="2026-08-10T08:00:00",
-    end="2026-08-10T10:00:00",
+    start="2032-08-10T08:00:00",
+    end="2032-08-10T10:00:00",
 ):
     return client.post(
         "/api/equipment/reservations/",
@@ -378,6 +378,20 @@ def test_create_rejects_user_name_mismatch(client):
     assert response.status_code == 401
 
 
+def test_create_rejects_start_time_in_the_past(client):
+    _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
+    _ensure_user("Integration Student", "52998224725")
+
+    response = _create_api_reservation(
+        client,
+        start="2026-01-08T10:10:00",
+        end="2026-01-08T11:10:00",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Start time cannot be in the past"
+
+
 def test_create_rejects_conflict_with_room_reservation(client):
     _insert_room("Integration Lab", 10, RoomMaintenanceStatus.no)
     _ensure_user("Integration Student", "52998224725")
@@ -388,8 +402,8 @@ def test_create_rejects_conflict_with_room_reservation(client):
             user_name="Integration Student",
             user_type="discente",
             room="Integration Lab",
-            start_time=datetime(2026, 8, 10, 9, 0),
-            end_time=datetime(2026, 8, 10, 11, 0),
+            start_time=datetime(2032, 8, 10, 9, 0),
+            end_time=datetime(2032, 8, 10, 11, 0),
             status=ReservationStatus.pending,
         )
     )
@@ -408,8 +422,8 @@ def test_admin_can_list_confirm_and_deny_equipment_reservations(client):
     first = _create_api_reservation(client)
     second = _create_api_reservation(
         client,
-        start="2026-08-10T11:00:00",
-        end="2026-08-10T13:00:00",
+        start="2032-08-10T11:00:00",
+        end="2032-08-10T13:00:00",
     )
     assert first.status_code == 201
     assert second.status_code == 201

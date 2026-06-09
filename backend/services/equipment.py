@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -18,6 +20,21 @@ ACTIVE_ROOM_STATUSES = [
     ReservationStatus.pending,
     ReservationStatus.confirmed,
 ]
+_BRT = timezone(timedelta(hours=-3))
+
+
+def check_start_not_in_past(start_time: datetime) -> None:
+    start_naive = (
+        start_time.replace(tzinfo=None)
+        if start_time.tzinfo is not None
+        else start_time
+    )
+    now = datetime.now(_BRT).replace(tzinfo=None)
+    if start_naive < now - timedelta(minutes=5):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Start time cannot be in the past",
+        )
 
 
 def get_active_user(db: Session, user_cpf: str, user_name: str | None = None) -> User:
@@ -130,6 +147,7 @@ def create_computer_reservation(
     user = get_active_user(db, user_cpf, user_name)
     room = get_room(db, data.room)
     check_room_maintenance(room)
+    check_start_not_in_past(data.start_time)
     check_user_time_conflict(db, user.cpf, data.start_time, data.end_time)
     check_room_computer_capacity(
         db,
@@ -212,6 +230,7 @@ def update_computer_reservation(
             detail="End time must be after start time",
         )
 
+    check_start_not_in_past(new_start)
     room = get_room(db, new_room_name)
     check_room_maintenance(room)
     check_user_time_conflict(

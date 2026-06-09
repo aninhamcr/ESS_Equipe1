@@ -18,6 +18,7 @@ from models.user import User, UserRole
 from models.reservation import Reservation, ReservationStatus
 from models.room import Room, RoomMaintenanceStatus
 from models.maintenance import MaintenanceRequest, MaintenanceStatus
+from models.equipment import ComputerReservation, ComputerReservationStatus
 
 router = APIRouter(prefix="/test", tags=["Test Utils"])
 
@@ -52,6 +53,9 @@ def deletar_usuario_teste(cpf: str, db: Session = Depends(get_db)):
 
     # Remove reservas associadas antes de remover o usuário
     db.query(Reservation).filter(Reservation.user_cpf == cpf).delete()
+    db.query(ComputerReservation).filter(
+        ComputerReservation.user_cpf == cpf
+    ).delete()
     db.delete(user)
     db.commit()
 
@@ -64,6 +68,9 @@ def deletar_todos_usuarios_teste(db: Session = Depends(get_db)):
     """
     db.query(Reservation).filter(
         Reservation.user_cpf.in_(CPFS_PERMITIDOS)
+    ).delete(synchronize_session=False)
+    db.query(ComputerReservation).filter(
+        ComputerReservation.user_cpf.in_(CPFS_PERMITIDOS)
     ).delete(synchronize_session=False)
 
     db.query(User).filter(
@@ -149,6 +156,61 @@ def semear_reserva_teste(data: SeedReservation, db: Session = Depends(get_db)):
     return {"id": reserva.id, "status": reserva.status.value, "room": reserva.room}
 
 
+@router.delete("/equipment-reservations", status_code=204)
+def deletar_reservas_equipamentos_teste(db: Session = Depends(get_db)):
+    db.query(ComputerReservation).filter(
+        ComputerReservation.user_cpf.in_(CPFS_PERMITIDOS)
+    ).delete(synchronize_session=False)
+    db.commit()
+
+
+class SeedEquipmentReservation(BaseModel):
+    user_cpf: str
+    user_name: str
+    room: str
+    computer_quantity: int
+    start_time: datetime
+    end_time: datetime
+    status: str = "pending"
+
+
+@router.post("/equipment-reservations/seed", status_code=201)
+def semear_reserva_equipamentos_teste(
+    data: SeedEquipmentReservation,
+    db: Session = Depends(get_db),
+):
+    if data.user_cpf not in CPFS_PERMITIDOS:
+        raise HTTPException(
+            status_code=403,
+            detail="Só é permitido semear reservas para CPFs de teste.",
+        )
+    try:
+        status_enum = ComputerReservationStatus(data.status)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Status inválido: {data.status}",
+        )
+
+    reservation = ComputerReservation(
+        user_cpf=data.user_cpf,
+        user_name=data.user_name,
+        room=data.room,
+        computer_quantity=data.computer_quantity,
+        start_time=data.start_time,
+        end_time=data.end_time,
+        status=status_enum,
+    )
+    db.add(reservation)
+    db.commit()
+    db.refresh(reservation)
+    return {
+        "id": reservation.id,
+        "status": reservation.status.value,
+        "room": reservation.room,
+    }
+
+
 @router.delete("/maintenance", status_code=204)
 def deletar_manutencoes_teste(db: Session = Depends(get_db)):
     """
@@ -192,6 +254,9 @@ def semear_manutencao_teste(data: SeedMaintenance, db: Session = Depends(get_db)
         end_date=data.end_date,
     )
     db.add(manutencao)
+    room = db.query(Room).filter(Room.name == data.room).first()
+    if room:
+        room.maintenance_status = RoomMaintenanceStatus.scheduled
     db.commit()
     db.refresh(manutencao)
     return {"id": manutencao.id, "room": manutencao.room}
