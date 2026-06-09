@@ -29,11 +29,13 @@ export default function RoomFormModal({ room, onClose, onSave, loading, error })
   function handleSave() {
     if (!form.name.trim()) { setFieldError("name"); return; }
     if (!form.capacity || Number(form.capacity) <= 0) { setFieldError("capacity"); return; }
+    if (!form.description.trim()) { setFieldError("description"); return; }
+    if (form.computers === "" || Number(form.computers) < 0) { setFieldError("computers"); return; }
     onSave({
       name:               form.name.trim(),
       capacity:           Number(form.capacity),
-      description:        form.description.trim() || undefined,
-      computers:          Number(form.computers) || 0,
+      description:        form.description.trim(),
+      computers:          Number(form.computers),
       maintenance_status: isEdit ? room.maintenance_status : "Não",
     });
   }
@@ -79,9 +81,11 @@ export default function RoomFormModal({ room, onClose, onSave, loading, error })
             </div>
 
             <div className="field-group-sala">
-              <label className="field-label-sala">Descrição</label>
+              <label className="field-label-sala">
+                Descrição <span className="field-req">*</span>
+              </label>
               <input
-                className="field-input-sala"
+                className={`field-input-sala${fieldError === "description" ? " error" : ""}`}
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 placeholder="Ex: Sala de Reunião"
@@ -91,9 +95,11 @@ export default function RoomFormModal({ room, onClose, onSave, loading, error })
             </div>
 
             <div className="field-group-sala">
-              <label className="field-label-sala">Nº de computadores</label>
+              <label className="field-label-sala">
+                Nº de computadores <span className="field-req">*</span>
+              </label>
               <input
-                className="field-input-sala"
+                className={`field-input-sala${fieldError === "computers" ? " error" : ""}`}
                 type="number"
                 min="0"
                 value={form.computers}
