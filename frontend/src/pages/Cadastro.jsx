@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { api } from "../api/client";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function Cadastro() {
   const [form, setForm] = useState({
@@ -10,6 +11,7 @@ export default function Cadastro() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   function set(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -19,7 +21,7 @@ export default function Cadastro() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    try {
+      try {
       const payload = { nome: form.nome, cpf: form.cpf, senha: form.senha, tipo: form.tipo };
       if (form.tipo === "discente") {
         payload.matricula = form.matricula;
@@ -30,7 +32,10 @@ export default function Cadastro() {
       await api.post("/users/", payload);
       navigate("/login");
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.response?.data?.detail ||
+        err.message ||
+        "Erro ao cadastrar usuário");
     } finally {
       setLoading(false);
     }
@@ -50,11 +55,11 @@ export default function Cadastro() {
         <form onSubmit={handleSubmit} style={s.form}>
 
           <Field label="Nome completo">
-            <input style={s.input} value={form.nome} onChange={set("nome")} required />
+            <input name="nome" style={s.input} value={form.nome} onChange={set("nome")} required />
           </Field>
 
           <Field label="CPF">
-            <input style={s.input} placeholder="000.000.000-00" value={form.cpf} onChange={set("cpf")} required />
+            <input name="cpf" style={s.input} placeholder="000.000.000-00" value={form.cpf} onChange={set("cpf")} required />
           </Field>
           
           {/* Tipo */}
@@ -74,31 +79,42 @@ export default function Cadastro() {
           {form.tipo === "discente" && (
             <div style={s.grid2}>
               <Field label="Matrícula">
-                <input style={s.input} value={form.matricula} onChange={set("matricula")} required />
+                <input name="matricula" style={s.input} value={form.matricula} onChange={set("matricula")} required />
               </Field>
               <Field label="Curso">
-                <input style={s.input} value={form.curso} onChange={set("curso")} required />
+                <input name="curso" style={s.input} value={form.curso} onChange={set("curso")} required />
               </Field>
             </div>
           )}
 
           {form.tipo === "docente" && (
             <Field label="SIAPE">
-              <input style={s.input} value={form.siape} onChange={set("siape")} required />
+              <input name="siape" style={s.input} value={form.siape} onChange={set("siape")} required />
             </Field>
           )}
 
           <Field label="Senha">
-            <input
-              style={s.input}
-              type="password"
-              placeholder="Mínimo 6 caracteres"
-              value={form.senha}
-              onChange={set("senha")}
-              minLength={6}
-              maxLength={128}
-              required
-            />
+            <div style={s.passwordField}>
+              <input
+                name = "senha"
+                style={s.inputPassword}
+                type={mostrarSenha ? "text" : "password"}
+                placeholder="Mínimo 6 caracteres"
+                value={form.senha}
+                onChange={set("senha")}
+                minLength={6}
+                maxLength={128}
+                required
+              />
+
+              <button
+                type="button"
+                style={s.togglePasswordBtn}
+                onClick={() => setMostrarSenha(!mostrarSenha)}
+              >
+                {mostrarSenha ? <FiEyeOff /> : <FiEye />}
+              </button>
+            </div>
           </Field>
 
           {error && <p style={s.error}>{error}</p>}
@@ -264,4 +280,8 @@ const s = {
     textDecoration: "none",
     fontWeight: "600",
   },
+  passwordField:  {width:"100%",display: "flex", gap: "0.5rem", alignItems: "center", position: "relative" },
+  inputPassword:  {border: "1px solid #ffffff1a", borderRadius: "8px", padding: "9px 13px", fontSize: "0.92rem", color: "#f0f0f0", outline: "none", background: "#ffffff0f",width: "100%",boxSizing: "border-box"},
+  togglePasswordBtn:{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: "16px", color: "#666",},   
+
 };

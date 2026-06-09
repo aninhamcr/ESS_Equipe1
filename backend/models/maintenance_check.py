@@ -9,6 +9,7 @@ class MaintenanceCheckStatus(str, enum.Enum):
     pending   = "pending"
     confirmed = "confirmed"
     denied    = "denied"
+    completed = "completed"
 
 
 class ReservationConflictType(str, enum.Enum):

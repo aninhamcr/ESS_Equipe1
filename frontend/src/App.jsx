@@ -16,6 +16,7 @@ import ManutencoesDocente from "./pages/docente/Manutencoes";
 import AdminSalas       from "./pages/admin/Salas";
 import AdminReservas    from "./pages/admin/Reservas";
 import AdminManutencoes from "./pages/admin/Manutencoes";
+import AdminTools       from "./pages/admin/Tools";
 
 import "./styles/global.css";
 
@@ -51,6 +52,8 @@ export default function App() {
             element={<ProtectedRoute roles={["admin"]}><AdminSalas /></ProtectedRoute>} />
           <Route path="/reservas"
             element={<ProtectedRoute roles={["admin"]}><AdminReservas /></ProtectedRoute>} />
+          <Route path="/admin-tools"
+            element={<ProtectedRoute roles={["admin"]}><AdminTools /></ProtectedRoute>} />
           <Route path="/manutencoes"
             element={<ProtectedRoute roles={["admin"]}><AdminManutencoes /></ProtectedRoute>} />
 

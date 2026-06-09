@@ -337,7 +337,7 @@ def usuario_tenta_reservar_por_nome(client, context, nome, room, start, end):
     senha = _NOME_SENHA[nome]
     r = client.post(
         "/api/reservations/",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": room, "start_time": start, "end_time": end},
     )
     context["response"] = r
@@ -349,7 +349,7 @@ def usuario_tenta_reservar_por_nome(client, context, nome, room, start, end):
 def usuario_tenta_reservar_por_cpf(client, context, cpf, nome, senha, room, start, end):
     r = client.post(
         "/api/reservations/",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": room, "start_time": start, "end_time": end},
     )
     context["response"] = r
@@ -364,7 +364,7 @@ def usuario_tenta_editar_fim_por_nome(client, context, nome, new_end, **_):
     senha = _NOME_SENHA[nome]
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"end_time": new_end},
     )
     context["response"] = r
@@ -376,7 +376,7 @@ def usuario_tenta_editar_sala_por_nome(client, context, nome, new_room, **_):
     senha = _NOME_SENHA[nome]
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room},
     )
     context["response"] = r
@@ -388,7 +388,7 @@ def usuario_tenta_editar_sala_e_fim_por_nome(client, context, nome, new_room, ne
     senha = _NOME_SENHA[nome]
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room, "end_time": new_end},
     )
     context["response"] = r
@@ -400,7 +400,7 @@ def usuario_tenta_cancelar_por_nome(client, context, nome, **_):
     senha = _NOME_SENHA[nome]
     r = client.delete(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
     )
     context["response"] = r
 
@@ -409,7 +409,7 @@ def usuario_tenta_cancelar_por_nome(client, context, nome, **_):
 def usuario_tenta_editar_fim(client, context, cpf, nome, senha, new_end, **_):
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"end_time": new_end},
     )
     context["response"] = r
@@ -419,7 +419,7 @@ def usuario_tenta_editar_fim(client, context, cpf, nome, senha, new_end, **_):
 def usuario_tenta_editar_sala(client, context, cpf, nome, senha, new_room, **_):
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room},
     )
     context["response"] = r
@@ -429,7 +429,7 @@ def usuario_tenta_editar_sala(client, context, cpf, nome, senha, new_room, **_):
 def usuario_tenta_editar_sala_e_fim(client, context, cpf, nome, senha, new_room, new_end, **_):
     r = client.put(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
         json={"room": new_room, "end_time": new_end},
     )
     context["response"] = r
@@ -439,7 +439,7 @@ def usuario_tenta_editar_sala_e_fim(client, context, cpf, nome, senha, new_room,
 def usuario_tenta_cancelar_id(client, context, cpf, nome, senha, **_):
     r = client.delete(
         f"/api/reservations/{context['reservation_id']}",
-        params={"user_cpf": cpf, "user_nome": nome, "user_senha": senha},
+        headers={"X-User-Cpf": cpf, "X-User-Nome": nome, "X-User-Senha": senha},
     )
     context["response"] = r
 
@@ -595,3 +595,152 @@ def sistema_marca_status(context, expected):
     db.close()
     assert r is not None
     assert r.status.value == expected
+
+
+# TESTES UNITARIOS
+
+from datetime import date, timedelta, timezone
+from fastapi import HTTPException
+from services.reservation import (
+    _check_confirmed_conflict,
+    _check_end_after_start,
+    _check_room_exists_and_available,
+    _check_start_not_in_past,
+    _check_user_conflict,
+)
+from services.reservation_messages import ReservationMessages as Msg
+ 
+ 
+def test_unitario_fim_posterior_ao_inicio_nao_levanta_erro():
+    # fim depois do inicio -> nao deve levantar excecao
+    _check_end_after_start(datetime(2030, 6, 1, 8, 0), datetime(2030, 6, 1, 10, 0))
+ 
+ 
+def test_unitario_fim_igual_ao_inicio_rejeitado():
+    momento = datetime(2030, 6, 1, 8, 0)
+    with pytest.raises(HTTPException) as exc:
+        _check_end_after_start(momento, momento)
+    assert exc.value.status_code == 400
+ 
+ 
+def test_unitario_fim_antes_do_inicio_rejeitado():
+    with pytest.raises(HTTPException) as exc:
+        _check_end_after_start(datetime(2030, 6, 1, 10, 0), datetime(2030, 6, 1, 8, 0))
+    assert exc.value.status_code == 400
+    assert "posterior" in exc.value.detail.lower()
+ 
+ 
+def test_unitario_inicio_no_futuro_aceito():
+    futuro = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
+    _check_start_not_in_past(futuro)
+ 
+ 
+def test_unitario_inicio_no_passado_rejeitado():
+    with pytest.raises(HTTPException) as exc:
+        _check_start_not_in_past(datetime(2020, 1, 1, 8, 0))
+    assert exc.value.status_code == 400
+    assert "passado" in exc.value.detail.lower()
+
+
+# ── Unitarios: conflito com reserva confirmada (RN-02) ────────────────────────
+
+def test_unitario_conflito_confirmado_bloqueia_sobreposicao():
+    _insert_reservation("11111111111", "D005", "2030-07-01T09:00:00", "2030-07-01T11:00:00", ReservationStatus.confirmed)
+    db = SessionTest()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            _check_confirmed_conflict(db, "D005", datetime(2030, 7, 1, 8, 0), datetime(2030, 7, 1, 10, 0))
+        assert exc.value.status_code == 400
+        assert exc.value.detail == Msg.CONFIRMED_CONFLICT
+    finally:
+        db.close()
+
+
+def test_unitario_conflito_confirmado_permite_sem_sobreposicao():
+    _insert_reservation("11111111111", "D005", "2030-07-01T09:00:00", "2030-07-01T11:00:00", ReservationStatus.confirmed)
+    db = SessionTest()
+    try:
+        # 11:00-12:00 encosta no fim mas nao sobrepoe -> nao deve levantar
+        _check_confirmed_conflict(db, "D005", datetime(2030, 7, 1, 11, 0), datetime(2030, 7, 1, 12, 0))
+    finally:
+        db.close()
+
+
+def test_unitario_conflito_confirmado_ignora_exclude_id():
+    rid = _insert_reservation("11111111111", "D005", "2030-07-01T09:00:00", "2030-07-01T11:00:00", ReservationStatus.confirmed)
+    db = SessionTest()
+    try:
+        # mesma sobreposicao, mas excluindo a propria reserva -> sem conflito
+        _check_confirmed_conflict(db, "D005", datetime(2030, 7, 1, 9, 0), datetime(2030, 7, 1, 11, 0), exclude_id=rid)
+    finally:
+        db.close()
+
+
+# ── Unitarios: restricao de 1 reserva por usuario/horario (RN-01) ─────────────
+
+def test_unitario_conflito_usuario_bloqueia_mesmo_usuario():
+    _insert_reservation("22222222222", "D005", "2030-07-02T08:00:00", "2030-07-02T10:00:00", ReservationStatus.pending)
+    db = SessionTest()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            _check_user_conflict(db, "22222222222", datetime(2030, 7, 2, 9, 0), datetime(2030, 7, 2, 11, 0))
+        assert exc.value.status_code == 400
+        assert exc.value.detail == Msg.USER_TIME_CONFLICT
+    finally:
+        db.close()
+
+
+def test_unitario_conflito_usuario_permite_outro_usuario():
+    _insert_reservation("22222222222", "D005", "2030-07-02T08:00:00", "2030-07-02T10:00:00", ReservationStatus.pending)
+    db = SessionTest()
+    try:
+        # outro CPF, mesmo horario -> coexiste (RN: duas pendentes de usuarios diferentes)
+        _check_user_conflict(db, "33333333333", datetime(2030, 7, 2, 8, 0), datetime(2030, 7, 2, 10, 0))
+    finally:
+        db.close()
+
+
+# ── Unitarios: existencia da sala e bloqueio por manutencao (RN-04) ───────────
+
+def test_unitario_sala_inexistente_levanta_404():
+    db = SessionTest()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            _check_room_exists_and_available(db, "NAO_EXISTE", datetime(2030, 7, 3, 8, 0), datetime(2030, 7, 3, 10, 0))
+        assert exc.value.status_code == 404
+        assert exc.value.detail == Msg.ROOM_NOT_FOUND
+    finally:
+        db.close()
+
+
+def test_unitario_sala_existente_sem_manutencao_ok():
+    db = SessionTest()
+    try:
+        # D005 e criada pelo fixture clean_database sem manutencao -> nao deve levantar
+        _check_room_exists_and_available(db, "D005", datetime(2030, 7, 3, 8, 0), datetime(2030, 7, 3, 10, 0))
+    finally:
+        db.close()
+
+
+def test_unitario_sala_com_manutencao_confirmada_bloqueia():
+    db = SessionTest()
+    db.add(User(nome="Doc Manut", cpf="44444444444", status=True, senha="x", tipo=UserRole.DOCENTE))
+    db.commit()
+    db.add(MaintenanceRequest(
+        teacher_cpf="44444444444",
+        teacher_name="Doc Manut",
+        room="D005",
+        description="manutencao",
+        status=MaintenanceStatus.confirmed,
+        start_date=date(2030, 7, 3),
+        end_date=date(2030, 7, 3),
+    ))
+    db.commit()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            _check_room_exists_and_available(db, "D005", datetime(2030, 7, 3, 8, 0), datetime(2030, 7, 3, 10, 0))
+        assert exc.value.status_code == 400
+        assert exc.value.detail == Msg.ROOM_UNDER_MAINTENANCE
+    finally:
+        db.close()
+ 
