@@ -58,10 +58,3 @@ And o serviço processa a edição da sala
 Then o servidor retorna uma mensagem de erro sobre a impossibilidade de editar salas reservadas
 And a sala "D005" continua armazenada no sistema com capacidade "60" e is_reserved "true"
 
-#Scenario: Buscar sala existente
-
-#Scenario: Listar salas reservadas
-
-#Scenario: Listar salas em manutenção
-
-#Scenario: Listar salas disponíveis 
